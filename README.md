@@ -27,6 +27,51 @@ secret manager, or PKI platform.
 
 ## Quick Start
 
+Fastest path from install to useful output:
+
+```sh
+go install github.com/helsingin/pqc/cmd/pqc@latest
+pqc tls readiness cloudflare.com:443
+pqc readiness scan --target cloudflare.com:443
+```
+
+Example output from `pqc tls readiness cloudflare.com:443` on June 29, 2026:
+
+```text
+target: cloudflare.com:443
+policy: public-web-2029
+ready_for_47_day_certs: false
+certificate_validity_days: 91
+days_until_expiry: 41
+renewal_window_risk: low
+recommended_renewal_cadence_days: 30
+recommended_renewal_lead_time_days: 17
+san_count: 5
+san_dcv_reuse_risk: low
+certificate_chain_bytes: 2591
+certificate_count: 3
+leaf_signature_algorithm: ECDSA-SHA256
+leaf_public_key_algorithm: ECDSA
+hybrid_pqc_key_exchange: true
+verified: true
+verification_mode: system
+warning: certificate_validity: leaf certificate validity exceeds the public-web-2029 target
+```
+
+The companion `pqc readiness scan --target cloudflare.com:443` command emits a
+JSON readiness report. For the same scan it produced:
+
+```json
+{
+  "score": 75,
+  "level": "watch",
+  "summary": "watch readiness with risks: automation-risk"
+}
+```
+
+Live endpoint results will change as certificates rotate and TLS deployments
+change.
+
 Build the CLI and daemon:
 
 ```sh
