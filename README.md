@@ -1,33 +1,37 @@
 # pqc: Post-Quantum Cryptography Toolkit
 
-Post-quantum cryptography readiness is how organizations protect sensitive data
-from "harvest now, decrypt later" attacks: encrypted traffic and stored secrets
-captured today that could be decrypted later once quantum computers can break RSA
-and ECC.
+`pqc` is an applied post-quantum cryptography toolkit for building, testing, and
+proving migration workflows. It combines post-quantum cryptography key
+management, ML-KEM envelope encryption, ML-DSA signatures, TLS inspection,
+readiness reports, audit logs, transparency checkpoints, and
+certificate/signature artifact experiments in one codebase.
 
-`pqc` turns that readiness work into concrete evidence. It helps teams identify
-cryptographic assets, test post-quantum cryptography encryption and signing
-workflows, inspect TLS endpoints, track key rotation, and produce signed records
-of what was checked.
+Use it to move from "we need a post-quantum cryptography plan" to working
+systems: generate keys, rotate versions, encrypt data, sign artifacts, inspect
+real endpoints, run repeatable migration checks, and preserve signed evidence
+of what happened.
 
-Use it to move from a high-level post-quantum cryptography strategy to
-repeatable migration tests, readiness reports, audit records, and
-crypto-agility exercises based on NIST-standard post-quantum cryptography
-algorithms such as ML-KEM and ML-DSA.
+That work matters because "harvest now, decrypt later" attacks turn encrypted
+traffic and stored secrets into future liabilities. Post-quantum cryptography
+migration is how organizations reduce that risk before quantum computers can
+break RSA and ECC.
 
 ## At A Glance
 
-`pqc` is for post-quantum cryptography readiness work that needs to be tested,
-reported, and repeated:
+`pqc` gives migration teams working post-quantum cryptography building blocks:
 
-- Inventory cryptographic assets and local key stores.
-- Test ML-KEM envelope encryption and ML-DSA signing workflows.
-- Inspect TLS endpoints for hybrid post-quantum cryptography key exchange and
-  certificate lifecycle risk.
-- Generate readiness reports for migration planning, vendor reviews, and
-  compliance evidence.
-- Create signed audit and transparency checkpoints over key inventory and
-  endpoint facts.
+- Versioned ML-KEM and ML-DSA key generation, rotation, public export,
+  encryption, decryption, signing, and verification.
+- Local key stores, passphrase-encrypted age stores, and an optional `pqcd`
+  daemon so private-key operations can run behind an HTTP API.
+- TLS endpoint inspection for hybrid post-quantum cryptography key exchange,
+  certificate chain facts, and public-web certificate lifecycle pressure.
+- Cryptographic asset inventory, readiness scoring, and migration reports for
+  planning, vendor reviews, and compliance evidence.
+- Metadata-only audit logs, signed Merkle checkpoints, transparency bundles,
+  and revocation manifests.
+- Artifact profiles for Merkle Tree Certificates, ML-DSA in X.509, Composite
+  X.509, and FN-DSA certificate/signature experiments.
 
 The first supported primitives are:
 
@@ -613,10 +617,8 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 ## Summary
 
-`pqc` is a practical post-quantum cryptography key-management and migration
-sandbox. It combines ML-KEM and ML-DSA key operations, local and remote
-key-store modes, audit and transparency checkpoints, TLS lifecycle readiness,
-Merkle Tree Certificate modeling, and isolated post-quantum cryptography
-certificate and signature artifact profiles. The goal is to make
+`pqc` is a practical post-quantum cryptography toolkit for key management,
+encryption, signatures, TLS inspection, audit evidence, transparency records,
+readiness scoring, and certificate/signature experiments. The goal is to make
 post-quantum cryptography migration workflows concrete and testable while
 keeping experimental certificate formats behind clear boundaries.
