@@ -21,23 +21,13 @@ break RSA and ECC.
 
 ## How It Fits Together
 
-```mermaid
-flowchart LR
-    A["Operators, applications, migration teams"]
-    B["pqc<br/>command-line interface, Go library, pqcd daemon"]
-    C["Keys<br/>ML-KEM and ML-DSA generation<br/>rotation, export, stores"]
-    D["Data protection<br/>encrypt, decrypt<br/>sign, verify"]
-    E["TLS inspection<br/>hybrid post-quantum cryptography transport<br/>certificate risk"]
-    F["Evidence<br/>audit logs, signed checkpoints<br/>transparency bundles"]
-    G["Artifact profiles<br/>Merkle Tree Certificates<br/>X.509, Composite X.509, FN-DSA"]
-
-    A --> B
-    B --> C
-    B --> D
-    B --> E
-    B --> F
-    B --> G
-```
+| Surface | What it gives you |
+| --- | --- |
+| `pqc` command-line interface | Operator-friendly workflows for keys, encryption, signatures, TLS inspection, readiness, audit, transparency, and artifact profiles. |
+| Go library | Embeddable post-quantum cryptography key management, ML-KEM envelope encryption, ML-DSA signing, verification, and reporting primitives. |
+| `pqcd` daemon | Remote key operations behind an HTTP API, with bearer auth, HTTPS, mTLS, authorization policy, and optional hybrid post-quantum cryptography transport. |
+| Evidence layer | Metadata-only audit logs, signed Merkle checkpoints, transparency bundles, revocation manifests, and repeatable readiness reports. |
+| Artifact lab | Isolated experiments for Merkle Tree Certificates, ML-DSA in X.509, Composite X.509, and FN-DSA without mixing draft logic into the core key manager. |
 
 ## At A Glance
 
