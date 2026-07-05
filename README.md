@@ -15,6 +15,20 @@ repeatable migration tests, readiness reports, audit records, and
 crypto-agility exercises based on NIST-standard post-quantum cryptography
 algorithms such as ML-KEM and ML-DSA.
 
+## At A Glance
+
+`pqc` is for post-quantum cryptography readiness work that needs to be tested,
+reported, and repeated:
+
+- Inventory cryptographic assets and local key stores.
+- Test ML-KEM envelope encryption and ML-DSA signing workflows.
+- Inspect TLS endpoints for hybrid post-quantum cryptography key exchange and
+  certificate lifecycle risk.
+- Generate readiness reports for migration planning, vendor reviews, and
+  compliance evidence.
+- Create signed audit and transparency checkpoints over key inventory and
+  endpoint facts.
+
 The first supported primitives are:
 
 - `ML-KEM-768` for envelope encryption.
