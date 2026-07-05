@@ -3,6 +3,8 @@
 **Operational post-quantum cryptography: key management, encryption, signatures,
 TLS inspection, and signed migration evidence.**
 
+![Editorial image of a secure operations environment with post-quantum cryptography infrastructure](docs/assets/pqc-hero.jpg)
+
 `pqc` helps teams turn a post-quantum cryptography migration plan into working
 systems. It provides a command-line interface, Go library, and optional local
 daemon for generating keys, rotating versions, encrypting data, signing
