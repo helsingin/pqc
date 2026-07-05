@@ -1,16 +1,18 @@
-# pqc
+# pqc: Post-Quantum Readiness Toolkit
 
-Post-quantum migration is not just an algorithm swap. Systems need to generate
-new key material, keep private keys out of application code, rotate versions,
-measure TLS and certificate readiness, preserve audit history, and experiment
-with draft certificate formats without letting draft churn contaminate the core
-key manager.
+Post-quantum readiness is how organizations protect sensitive data from
+"harvest now, decrypt later" attacks: encrypted traffic and stored secrets
+captured today that could be decrypted later once quantum computers can break
+RSA and ECC.
 
-`pqc` is a Go post-quantum key-management sandbox for that transition. It
-provides a core library, CLI, local file stores, an optional HTTP API daemon,
-TLS/PQC readiness inspection, tamper-evident audit and transparency
-checkpoints, and isolated artifact profiles for PQ certificate/signature
-approaches.
+`pqc` turns that readiness work into concrete evidence. It helps teams identify
+cryptographic assets, test post-quantum encryption and signing workflows,
+inspect TLS endpoints, track key rotation, and produce signed records of what
+was checked.
+
+Use it to move from a high-level PQC strategy to repeatable migration tests,
+readiness reports, audit records, and crypto-agility exercises based on
+NIST-standard post-quantum algorithms such as ML-KEM and ML-DSA.
 
 The first supported primitives are:
 
