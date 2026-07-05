@@ -22,14 +22,14 @@ break RSA and ECC.
 ## How It Fits Together
 
 ```mermaid
-flowchart TB
+flowchart LR
     A["Operators, applications, migration teams"]
     B["pqc<br/>command-line interface, Go library, pqcd daemon"]
-    C["Keys<br/>ML-KEM and ML-DSA generation, rotation, export, stores"]
-    D["Data protection<br/>encrypt, decrypt, sign, verify"]
+    C["Keys<br/>ML-KEM and ML-DSA generation<br/>rotation, export, stores"]
+    D["Data protection<br/>encrypt, decrypt<br/>sign, verify"]
     E["TLS inspection<br/>hybrid post-quantum cryptography transport<br/>certificate risk"]
-    F["Evidence<br/>audit logs, signed checkpoints, transparency bundles"]
-    G["Artifact profiles<br/>Merkle Tree Certificates, X.509, Composite X.509, FN-DSA"]
+    F["Evidence<br/>audit logs, signed checkpoints<br/>transparency bundles"]
+    G["Artifact profiles<br/>Merkle Tree Certificates<br/>X.509, Composite X.509, FN-DSA"]
 
     A --> B
     B --> C
