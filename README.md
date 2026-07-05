@@ -10,9 +10,10 @@ cryptographic assets, test post-quantum cryptography encryption and signing
 workflows, inspect TLS endpoints, track key rotation, and produce signed records
 of what was checked.
 
-Use it to move from a high-level PQC strategy to repeatable migration tests,
-readiness reports, audit records, and crypto-agility exercises based on
-NIST-standard post-quantum cryptography algorithms such as ML-KEM and ML-DSA.
+Use it to move from a high-level post-quantum cryptography strategy to
+repeatable migration tests, readiness reports, audit records, and
+crypto-agility exercises based on NIST-standard post-quantum cryptography
+algorithms such as ML-KEM and ML-DSA.
 
 The first supported primitives are:
 
@@ -20,12 +21,12 @@ The first supported primitives are:
 - `ML-DSA-65` for signatures.
 - `ML-DSA-87` for signatures.
 
-The implementation uses Cloudflare CIRCL for PQC primitives and the Go standard
-library for HKDF and AES-GCM.
+The implementation uses Cloudflare CIRCL for post-quantum cryptography
+primitives and the Go standard library for HKDF and AES-GCM.
 
-The project is designed for teams that need to prototype crypto-agility and PQC
-migration workflows before committing to a production KMS, HSM, Vault, cloud
-secret manager, or PKI platform.
+The project is designed for teams that need to prototype crypto-agility and
+post-quantum cryptography migration workflows before committing to a production
+KMS, HSM, Vault, cloud secret manager, or public key infrastructure platform.
 
 ## Quick Start
 
@@ -123,13 +124,13 @@ The README is the publishing overview. Detailed usage lives in `docs/`:
 
 - [CLI Reference](docs/cli.md): local and remote key operations, age store,
   audit checkpoints, transparency bundles, TLS readiness, readiness scoring,
-  MTC log/proof modeling, and treehead cache commands.
+  Merkle Tree Certificate log/proof modeling, and treehead cache commands.
 - [Artifact Profiles](docs/artifact-profiles.md): `mtc`, `x509-ml-dsa`,
   `composite-x509`, and `fndsa` profile versions, inputs, issue/verify flows,
   estimates, and smoke tests.
 - [Daemon, HTTP API, And Transport](docs/daemon-api.md): `pqcd`, HTTP
   endpoints, bearer auth, HTTPS, mTLS, authorization policy, environment
-  variables, and hybrid PQ TLS transport boundaries.
+  variables, and hybrid post-quantum cryptography TLS transport boundaries.
 
 ## What It Does
 
@@ -146,17 +147,19 @@ workflows:
 - Serves an optional HTTP API for centralized key operations.
 - Supports bearer-token auth, HTTPS, mTLS, and mTLS identity authorization
   policy for the daemon.
-- Prefers TLS 1.3 hybrid PQ key exchange groups for remote CLI transport.
+- Prefers TLS 1.3 hybrid post-quantum cryptography key exchange groups for
+  remote CLI transport.
 - Emits metadata-only JSONL audit events.
 - Builds signed Merkle checkpoints for audit logs.
 - Builds signed transparency bundles over key inventory, TLS endpoint facts, and
   optional revocation manifests.
-- Maintains experimental MTC log, checkpoint, proof, revocation, and treehead
-  cache utilities.
-- Scans TLS endpoints for PQ/hybrid key exchange, certificate chain facts, and
-  public-web 2029 lifecycle readiness.
+- Maintains experimental Merkle Tree Certificate log, checkpoint, proof,
+  revocation, and treehead cache utilities.
+- Scans TLS endpoints for post-quantum cryptography or hybrid key exchange,
+  certificate chain facts, and public-web 2029 lifecycle readiness.
 - Produces an opinionated readiness score across local keys and TLS targets.
-- Isolates PQ certificate/signature approaches behind artifact profiles:
+- Isolates post-quantum cryptography certificate and signature approaches
+  behind artifact profiles:
   `mtc`, `x509-ml-dsa`, `composite-x509`, and `fndsa`.
 
 ## Post-Quantum Cryptography Context
@@ -164,17 +167,18 @@ workflows:
 The project currently focuses on three practical migration tracks:
 
 - Operational key management: generate, rotate, store, encrypt, decrypt, sign,
-  verify, and audit PQ key usage.
+  verify, and audit post-quantum cryptography key usage.
 - TLS and certificate readiness: inspect current TLS endpoints, detect hybrid
-  PQ key exchange, measure chain size, and model CA/B Forum 47-day certificate
-  lifecycle pressure.
-- Certificate/signature experiments: keep MTC, ML-DSA in X.509, Composite
-  X.509, and FN-DSA logic behind artifact profile boundaries so draft updates
-  stay localized.
+  post-quantum cryptography key exchange, measure chain size, and model CA/B
+  Forum 47-day certificate lifecycle pressure.
+- Certificate/signature experiments: keep Merkle Tree Certificate, ML-DSA in
+  X.509, Composite X.509, and FN-DSA logic behind artifact profile boundaries
+  so draft updates stay localized.
 
-It intentionally separates hybrid PQ transport from PQ-signed certificate
-authentication. `pqcd` can negotiate hybrid PQ TLS key exchange, but its server
-and client certificates are normal X.509 certificates.
+It intentionally separates hybrid post-quantum cryptography transport from
+certificates signed with post-quantum cryptography algorithms. `pqcd` can
+negotiate hybrid post-quantum cryptography TLS key exchange, but its server and
+client certificates are normal X.509 certificates.
 
 ## Typical Pattern
 
@@ -241,11 +245,11 @@ The CLI command groups are:
 - `audit`: tamper-evident Merkle checkpoints for JSONL audit logs.
 - `transparency`: signed inventory checkpoints and revocation manifests.
 - `inventory`: crypto-agility inventory reports for stores and TLS endpoints.
-- `tls`: TLS/PQC readiness inspection.
+- `tls`: TLS and post-quantum cryptography readiness inspection.
 - `readiness`: opinionated readiness scoring over stores and TLS targets.
 - `mtc`: experimental Merkle Tree Certificate log/proof simulator.
-- `profiles`: PQ certificate/signature artifact profile discovery, inspection,
-  and sizing.
+- `profiles`: post-quantum cryptography certificate and signature artifact
+  profile discovery, inspection, and sizing.
 - `issue` / `verify-artifact`: issue and verify signed artifact profile
   documents.
 
@@ -275,7 +279,7 @@ pqc tls readiness --json example.com:443
 pqc readiness scan --store ./dev-keys --target example.com:443 > readiness.json
 ```
 
-Run the experimental MTC log/proof flow:
+Run the experimental Merkle Tree Certificate log/proof flow:
 
 ```sh
 pqc mtc log init --log mtc-log.json
@@ -291,11 +295,11 @@ versions and issue/verify smoke tests are in
 
 ## What You Can Build With It
 
-### PQC Key-Management Prototype
+### Post-Quantum Cryptography Key-Management Prototype
 
-Use the core library or CLI to generate ML-KEM and ML-DSA keys, rotate versions,
-encrypt/decrypt envelopes, sign artifacts, and verify old versions while a
-service migration is underway.
+Use the core library or command-line interface to generate ML-KEM and ML-DSA
+keys, rotate versions, encrypt and decrypt envelopes, sign artifacts, and verify
+old versions while a service migration is underway.
 
 ### Crypto-Agility Inventory Job
 
@@ -309,17 +313,17 @@ Build signed transparency checkpoints over key inventory, TLS target state, and
 optional revocation manifests. This gives teams a portable record of what keys
 and public fingerprints existed at a point in time.
 
-### MTC Experiment Harness
+### Merkle Tree Certificate Experiment Harness
 
-Use the experimental MTC log, checkpoint, proof, revocation, and treehead cache
-commands to model Merkle Tree Certificate workflows without depending on browser
-PKI infrastructure.
+Use the experimental Merkle Tree Certificate log, checkpoint, proof, revocation,
+and treehead cache commands to model Merkle Tree Certificate workflows without
+depending on browser public key infrastructure.
 
-### PQ Certificate Profile Lab
+### Post-Quantum Cryptography Certificate Profile Lab
 
-Use artifact profiles to issue and verify signed JSON artifacts for MTC,
-ML-DSA-in-X.509, Composite X.509, and FN-DSA experiments. The profile boundary
-keeps draft-specific behavior isolated.
+Use artifact profiles to issue and verify signed JSON artifacts for Merkle Tree
+Certificate, ML-DSA-in-X.509, Composite X.509, and FN-DSA experiments. The
+profile boundary keeps draft-specific behavior isolated.
 
 ### Remote Key Service
 
@@ -339,8 +343,8 @@ An integration normally chooses:
 - Whether inventory and readiness reports are target-only, store-only, or both.
 - Which artifact profiles are allowed in the project, especially for draft
   formats.
-- Where transparency bundles, revocation manifests, and MTC treehead caches are
-  stored.
+- Where transparency bundles, revocation manifests, and Merkle Tree Certificate
+  treehead caches are stored.
 
 For production-facing work, treat this repository as a migration and integration
 toolkit rather than a replacement for a hardened KMS or HSM deployment.
@@ -352,17 +356,19 @@ toolkit rather than a replacement for a hardened KMS or HSM deployment.
 - A production HSM, Vault, or cloud KMS replacement.
 - A browser-trusted WebPKI CA.
 - A full ACME CA or certificate issuance authority.
-- A PQC-signed X.509 implementation for the public WebPKI.
-- An implementation of browser MTC validation.
+- An X.509 implementation signed with post-quantum cryptography algorithms for
+  the public WebPKI.
+- An implementation of browser Merkle Tree Certificate validation.
 - An OpenSSL trust store generator.
 - A guarantee that observed TLS endpoints are quantum-safe.
 - A substitute for private-key custody, access-control, and incident-response
   design.
 
 The project does implement useful pieces for experimentation: key operations,
-hybrid-PQ transport preference, signed artifacts, transparency checkpoints,
-revocation manifests, MTC log/proof modeling, treehead cache utilities, TLS
-readiness facts, and opinionated readiness scoring.
+hybrid post-quantum cryptography transport preference, signed artifacts,
+transparency checkpoints, revocation manifests, Merkle Tree Certificate
+log/proof modeling, treehead cache utilities, TLS readiness facts, and
+opinionated readiness scoring.
 
 ## Library
 
@@ -511,15 +517,17 @@ history and process listings.
   and Merkle helpers.
 - `revocation.go`: revocation manifest model and validation.
 - `readiness.go`: opinionated readiness scoring over inventory and TLS facts.
-- `tlsinspect.go`: TLS endpoint inspection and hybrid PQ key exchange detection.
+- `tlsinspect.go`: TLS endpoint inspection and hybrid post-quantum cryptography
+  key exchange detection.
 - `tlsreadiness.go`: public-web 2029 certificate lifecycle readiness policy.
-- `mtclog.go`: experimental MTC log, checkpoint, proof, and verification model.
-- `mtctreeheads.go`: experimental MTC treehead cache parsing, verification, and
-  export model.
+- `mtclog.go`: experimental Merkle Tree Certificate log, checkpoint, proof, and
+  verification model.
+- `mtctreeheads.go`: experimental Merkle Tree Certificate treehead cache
+  parsing, verification, and export model.
 - `profile/`: stable artifact profile plugin interfaces and shared artifact
   signing helpers.
-- `profiles/`: built-in artifact profiles for MTC, ML-DSA in X.509, Composite
-  X.509, and FN-DSA.
+- `profiles/`: built-in artifact profiles for Merkle Tree Certificate, ML-DSA
+  in X.509, Composite X.509, and FN-DSA.
 - `store/file/`: plain local JSON key store.
 - `store/agefile/`: passphrase-encrypted age local key store.
 - `cmd/pqc/`: CLI commands.
@@ -552,11 +560,12 @@ make build
 
 The codebase is currently developed and tested with the Go toolchain available
 in this repository's local environment. The project uses Go's standard TLS
-stack for hybrid PQ key exchange groups and Cloudflare CIRCL for ML-KEM and
-ML-DSA primitives.
+stack for hybrid post-quantum cryptography key exchange groups and Cloudflare
+CIRCL for ML-KEM and ML-DSA primitives.
 
 Remote TLS behavior depends on the Go version used to build the binaries,
-because hybrid PQ TLS group support is provided by the Go standard library.
+because hybrid post-quantum cryptography TLS group support is provided by the Go
+standard library.
 
 ## Security
 
@@ -571,14 +580,16 @@ Important boundaries:
   handling still matters.
 - Remote `decrypt` and `sign` send operation inputs to `pqcd`; this is by
   design because the daemon owns the private keys.
-- TLS transport can negotiate hybrid PQ key exchange, but the X.509
-  certificates used for TLS authentication are classical certificates.
+- TLS transport can negotiate hybrid post-quantum cryptography key exchange,
+  but the X.509 certificates used for TLS authentication are classical
+  certificates.
 - Artifact profile documents are application-level signed JSON artifacts, not
   browser-trusted certificates.
 - Audit logs intentionally exclude private keys, public key bytes, plaintext,
   ciphertext, signatures, shared secrets, and request bodies.
-- MTC commands model log/checkpoint/proof mechanics for development and testing;
-  they do not create browser-trusted WebPKI certificates.
+- Merkle Tree Certificate commands model log/checkpoint/proof mechanics for
+  development and testing; they do not create browser-trusted WebPKI
+  certificates.
 - Readiness scores are operational guidance based on observed facts, not a
   cryptographic proof that an endpoint or organization is quantum-safe.
 
@@ -591,6 +602,7 @@ Apache-2.0. See [LICENSE](LICENSE).
 `pqc` is a practical post-quantum cryptography key-management and migration
 sandbox. It combines ML-KEM and ML-DSA key operations, local and remote
 key-store modes, audit and transparency checkpoints, TLS lifecycle readiness,
-MTC modeling, and isolated PQ certificate/signature artifact profiles. The goal
-is to make PQC migration workflows concrete and testable while keeping
-experimental certificate formats behind clear boundaries.
+Merkle Tree Certificate modeling, and isolated post-quantum cryptography
+certificate and signature artifact profiles. The goal is to make
+post-quantum cryptography migration workflows concrete and testable while
+keeping experimental certificate formats behind clear boundaries.
