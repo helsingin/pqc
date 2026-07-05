@@ -1,19 +1,21 @@
 # Post-Quantum Cryptography Toolkit
 
-**Operational post-quantum cryptography: key management, encryption, signatures,
-TLS inspection, and signed migration evidence.**
-
 ![Editorial image of a secure operations environment with post-quantum cryptography infrastructure](docs/assets/pqc-hero.jpg)
 
-`pqc` helps teams turn a post-quantum cryptography migration plan into working
-systems. It provides a command-line interface, Go library, and optional local
-daemon for generating keys, rotating versions, encrypting data, signing
-artifacts, inspecting TLS endpoints, and preserving evidence of migration work.
+`pqc` lets you:
 
-The toolkit is built for the practical work behind post-quantum cryptography
-readiness: reducing "harvest now, decrypt later" risk, testing NIST-standard
-algorithms, building crypto-agility into systems, and producing repeatable
-records for engineering, vendor, and compliance reviews.
+- Manage post-quantum cryptography keys.
+- Encrypt data with ML-KEM envelopes.
+- Sign artifacts with ML-DSA.
+- Inspect TLS endpoints for hybrid post-quantum cryptography.
+- Score migration readiness.
+- Produce signed audit and transparency evidence.
+- Run local or remote key operations through `pqcd`.
+- Experiment with post-quantum cryptography certificate and signature profiles.
+
+Use it to turn a post-quantum cryptography migration plan into working systems:
+generate keys, rotate versions, protect data, inspect real endpoints, and
+preserve repeatable evidence for engineering, vendor, and compliance reviews.
 
 ## What You Can Do
 
