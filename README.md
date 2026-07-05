@@ -17,17 +17,6 @@ Use it to turn a post-quantum cryptography migration plan into working systems:
 generate keys, rotate versions, protect data, inspect real endpoints, and
 preserve repeatable evidence for engineering, vendor, and compliance reviews.
 
-## What You Can Do
-
-| Area | Capabilities |
-| --- | --- |
-| Key management | Generate, rotate, list, inspect, and export versioned `ML-KEM-768`, `ML-DSA-65`, and `ML-DSA-87` keys. |
-| Data protection | Encrypt and decrypt envelopes with ML-KEM, HKDF-SHA-256, and AES-256-GCM; sign and verify artifacts with ML-DSA. |
-| Stores and daemon | Use a plain local file store, a passphrase-encrypted age store, or the optional `pqcd` daemon for remote key operations. |
-| TLS inspection | Inspect endpoints for TLS facts, hybrid post-quantum cryptography key exchange, certificate chain size, and certificate lifecycle risk. |
-| Evidence | Emit metadata-only audit logs, signed Merkle checkpoints, transparency bundles, revocation manifests, inventory reports, and readiness scores. |
-| Artifact profiles | Experiment with Merkle Tree Certificates, ML-DSA in X.509, Composite X.509, and FN-DSA behind isolated profile boundaries. |
-
 ## Quick Start
 
 Install the command-line tool:
