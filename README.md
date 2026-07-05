@@ -17,171 +17,95 @@ Use it to turn a post-quantum cryptography migration plan into working systems:
 generate keys, rotate versions, protect data, inspect real endpoints, and
 preserve repeatable evidence for engineering, vendor, and compliance reviews.
 
-## Quick Start
-
-Install the command-line tool:
+## Install
 
 ```sh
 go install github.com/helsingin/pqc/cmd/pqc@latest
+go install github.com/helsingin/pqc/cmd/pqcd@latest
 ```
 
-Create a key for encryption and a key for signing:
-
-```sh
-pqc keys create --type ml-kem-768 --id service-a
-pqc keys create --type ml-dsa-65 --id signer-a
-```
-
-Encrypt, decrypt, sign, and verify:
-
-```sh
-pqc encrypt --key service-a < message.json > message.pqc
-pqc decrypt < message.pqc > message.out
-
-pqc sign --key signer-a artifact.tar > artifact.sig
-pqc verify --key signer-a artifact.tar artifact.sig
-```
-
-Inspect a TLS endpoint and produce a readiness report:
-
-```sh
-pqc tls readiness cloudflare.com:443
-pqc readiness scan --target cloudflare.com:443
-```
-
-Build from a local checkout:
+From a local checkout:
 
 ```sh
 make build
 ```
 
-The binaries are written to:
+## Manage Keys
 
-```text
-bin/pqc
-bin/pqcd
+```sh
+pqc keys create --type ml-kem-768 --id service-a
+pqc keys create --type ml-dsa-65 --id signer-a
+pqc keys rotate --id service-a
+pqc keys list
+pqc keys public --id signer-a
 ```
 
-## Common Workflows
+## Encrypt Data
 
-### Prototype Post-Quantum Cryptography Key Operations
+```sh
+pqc encrypt --key service-a < message.json > message.pqc
+pqc decrypt < message.pqc > message.out
+```
 
-Use the library or command-line interface to create ML-KEM and ML-DSA keys,
-rotate versions, encrypt and decrypt payloads, sign artifacts, and keep older
-versions available for decrypt and verify operations during a migration.
+## Sign Artifacts
 
-### Run Inventory And Readiness Checks
+```sh
+pqc sign --key signer-a artifact.tar > artifact.sig
+pqc verify --key signer-a artifact.tar artifact.sig
+```
 
-Scan local key stores and TLS endpoints to produce repeatable reports for
-migration planning, certificate lifecycle readiness, and operational risk
-review.
+## Inspect TLS
+
+```sh
+pqc tls inspect example.com:443
+pqc tls readiness example.com:443
+```
+
+## Score Readiness
 
 ```sh
 pqc inventory scan --store ./dev-keys --target example.com:443
 pqc readiness scan --store ./dev-keys --target example.com:443
 ```
 
-### Produce Signed Evidence
-
-Create metadata-only audit logs, sign Merkle checkpoints over those logs, and
-build transparency bundles over key inventory, TLS endpoint facts, and optional
-revocation manifests.
+## Produce Evidence
 
 ```sh
+pqc keys create --type ml-dsa-65 --id audit-signer --audit-log ./audit.jsonl
 pqc audit checkpoint --audit ./audit.jsonl --sign-key audit-signer
-pqc transparency checkpoint --sign-key org-root --target example.com:443
+pqc transparency checkpoint --sign-key audit-signer --target example.com:443
 ```
 
-### Run A Local Key Service
-
-Run `pqcd` when command-line users or test applications should call a local
-service instead of opening the key store directly. The daemon supports bearer
-tokens, HTTPS, mutual TLS, and authorization policy for test environments.
+## Run A Key Service
 
 ```sh
-pqcd --addr 127.0.0.1:8080
+pqcd --addr 127.0.0.1:8080 --token "$PQC_API_TOKEN"
 pqc keys list --remote http://127.0.0.1:8080 --token "$PQC_API_TOKEN"
 ```
 
-### Explore Certificate And Signature Profiles
-
-Use artifact profiles to issue, inspect, estimate, and verify signed JSON
-artifacts for post-quantum cryptography certificate and signature experiments.
+## Experiment With Certificate And Signature Profiles
 
 ```sh
 pqc profiles list
 pqc profiles show x509-ml-dsa
-pqc issue --profile mtc --sign-key org-root --subject example.com --dns example.com
+pqc issue --profile mtc --sign-key signer-a --subject example.com --dns example.com
 pqc verify-artifact artifact.json
 ```
 
 ## Documentation
 
-The detailed reference material lives in `docs/`:
+- [Command-Line Reference](docs/cli.md)
+- [Artifact Profiles](docs/artifact-profiles.md)
+- [Daemon, HTTP Service, And Transport](docs/daemon-api.md)
 
-- [Command-Line Reference](docs/cli.md): key operations, stores, remote mode,
-  audit checkpoints, transparency bundles, TLS inspection, readiness scoring,
-  Merkle Tree Certificate utilities, and profile commands.
-- [Artifact Profiles](docs/artifact-profiles.md): Merkle Tree Certificates,
-  ML-DSA in X.509, Composite X.509, and FN-DSA profile versions, inputs,
-  issue/verify flows, estimates, and smoke tests.
-- [Daemon, HTTP Service, And Transport](docs/daemon-api.md): `pqcd` endpoints,
-  bearer auth, HTTPS, mutual TLS, authorization policy, environment variables,
-  and hybrid post-quantum cryptography transport boundaries.
+## Notes
 
-## Security Boundaries
-
-`pqc` is an early open source toolkit for migration design, integration testing,
-and operational evidence. Treat the current stores and daemon as development
-and private-environment building blocks unless you have reviewed and hardened
-the full deployment path.
-
-Important boundaries:
-
-- The plain `file` store writes private key material to local JSON files with
-  filesystem permissions only.
-- The `age` store encrypts local key files with a passphrase, but passphrase
-  handling still matters.
-- Remote `decrypt` and `sign` send operation inputs to `pqcd`; this is by
-  design because the daemon owns the private keys.
-- TLS transport can negotiate hybrid post-quantum cryptography key exchange,
-  but the X.509 certificates used for TLS authentication are classical
-  certificates.
-- Artifact profile documents are application-level signed JSON artifacts, not
-  browser-trusted public web certificates.
-- Audit logs intentionally exclude private keys, public key bytes, plaintext,
-  ciphertext, signatures, shared secrets, and request bodies.
-- Merkle Tree Certificate commands model log/checkpoint/proof mechanics for
-  development and testing; they do not create browser-trusted public web
-  certificates.
-- Readiness scores are operational guidance based on observed facts, not a
-  cryptographic proof that an endpoint or organization is quantum-safe.
-
-For production-facing work, use this repository as a migration and integration
-toolkit alongside hardened private-key custody, access control, incident
-response, key management services, hardware security modules, cloud secret
-stores, or platform secret managers.
-
-## Project Status
-
-The first supported primitives are:
-
-- `ML-KEM-768` for envelope encryption.
-- `ML-DSA-65` for signatures.
-- `ML-DSA-87` for signatures.
-
-The implementation uses Cloudflare CIRCL for post-quantum cryptography
-primitives and the Go standard library for HKDF and AES-GCM.
-
-Remote TLS behavior depends on the Go version used to build the binaries,
-because hybrid post-quantum cryptography TLS group support is provided by the Go
-standard library.
-
-Run the test suite:
-
-```sh
-make test
-```
+- Current post-quantum cryptography primitives: `ML-KEM-768`, `ML-DSA-65`, and
+  `ML-DSA-87`.
+- The implementation uses Cloudflare CIRCL for post-quantum cryptography
+  primitives and the Go standard library for HKDF and AES-GCM.
+- Treat this as a migration and integration toolkit, not a replacement for
+  hardened production key custody, access control, or incident response design.
 
 ## License
 
