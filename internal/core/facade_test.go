@@ -1,4 +1,4 @@
-package pqc_test
+package core_test
 
 import (
 	"bytes"
