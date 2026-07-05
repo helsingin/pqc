@@ -1,4 +1,4 @@
-# pqc: Post-Quantum Cryptography Toolkit
+# Post-Quantum Cryptography Toolkit
 
 **Operational post-quantum cryptography: key management, encryption, signatures,
 TLS inspection, and signed migration evidence.**
