@@ -1,4 +1,4 @@
-package pqc
+package core
 
 import (
 	"bufio"
