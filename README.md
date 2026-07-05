@@ -1,7 +1,10 @@
 # pqc: Post-Quantum Cryptography Toolkit
 
-`pqc` is an applied post-quantum cryptography toolkit for building, testing, and
-proving migration workflows. It combines post-quantum cryptography key
+**Operational post-quantum cryptography: key management, encryption, signatures,
+TLS inspection, and signed migration evidence.**
+
+`pqc` is an operational post-quantum cryptography toolkit for building, testing,
+and proving migration workflows. It combines post-quantum cryptography key
 management, ML-KEM envelope encryption, ML-DSA signatures, TLS inspection,
 readiness reports, audit logs, transparency checkpoints, and
 certificate/signature artifact experiments in one codebase.
@@ -15,6 +18,26 @@ That work matters because "harvest now, decrypt later" attacks turn encrypted
 traffic and stored secrets into future liabilities. Post-quantum cryptography
 migration is how organizations reduce that risk before quantum computers can
 break RSA and ECC.
+
+## How It Fits Together
+
+```mermaid
+flowchart TB
+    A["Operators, applications, migration teams"]
+    B["pqc<br/>command-line interface, Go library, pqcd daemon"]
+    C["Keys<br/>ML-KEM and ML-DSA generation, rotation, export, stores"]
+    D["Data protection<br/>encrypt, decrypt, sign, verify"]
+    E["TLS inspection<br/>hybrid post-quantum cryptography transport<br/>certificate risk"]
+    F["Evidence<br/>audit logs, signed checkpoints, transparency bundles"]
+    G["Artifact profiles<br/>Merkle Tree Certificates, X.509, Composite X.509, FN-DSA"]
+
+    A --> B
+    B --> C
+    B --> D
+    B --> E
+    B --> F
+    B --> G
+```
 
 ## At A Glance
 
