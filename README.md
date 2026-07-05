@@ -1,4 +1,4 @@
-# pqc: Post-Quantum Readiness Toolkit
+# pqc: Post-Quantum Cryptography Toolkit
 
 Post-quantum readiness is how organizations protect sensitive data from
 "harvest now, decrypt later" attacks: encrypted traffic and stored secrets
