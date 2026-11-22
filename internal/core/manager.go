@@ -12,7 +12,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/cloudflare/circl/kem/kyber/kyber768"
+	"github.com/cloudflare/circl/kem/mlkem/mlkem768"
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/cloudflare/circl/sign/mldsa/mldsa87"
 )
@@ -205,16 +205,14 @@ func (m *Manager) Encrypt(ctx context.Context, keyID string, plaintext []byte, o
 	if record.Algorithm != AlgorithmMLKEM768 {
 		return nil, fmt.Errorf("encryption requires %s key, got %s", AlgorithmMLKEM768, record.Algorithm)
 	}
-	if len(record.PublicKey) != kyber768.PublicKeySize {
-		return nil, fmt.Errorf("invalid %s public key length: %d", record.Algorithm, len(record.PublicKey))
+	pub := new(mlkem768.PublicKey)
+	if err := pub.Unpack(record.PublicKey); err != nil {
+		return nil, fmt.Errorf("invalid %s public key: %w", record.Algorithm, err)
 	}
 
-	pub := new(kyber768.PublicKey)
-	pub.Unpack(record.PublicKey)
-
-	kemCiphertext := make([]byte, kyber768.CiphertextSize)
-	sharedSecret := make([]byte, kyber768.SharedKeySize)
-	seed := make([]byte, kyber768.EncapsulationSeedSize)
+	kemCiphertext := make([]byte, mlkem768.CiphertextSize)
+	sharedSecret := make([]byte, mlkem768.SharedKeySize)
+	seed := make([]byte, mlkem768.EncapsulationSeedSize)
 	if _, err := io.ReadFull(m.rand, seed); err != nil {
 		return nil, fmt.Errorf("read encapsulation seed: %w", err)
 	}
@@ -281,14 +279,12 @@ func (m *Manager) Decrypt(ctx context.Context, envelope *Envelope, opts EncryptO
 	if record.Algorithm != AlgorithmMLKEM768 || envelope.KEM != AlgorithmMLKEM768 {
 		return nil, fmt.Errorf("%w: expected %s", ErrInvalidEnvelope, AlgorithmMLKEM768)
 	}
-	if len(record.PrivateKey) != kyber768.PrivateKeySize {
-		return nil, fmt.Errorf("invalid %s private key length: %d", record.Algorithm, len(record.PrivateKey))
+	priv := new(mlkem768.PrivateKey)
+	if err := priv.Unpack(record.PrivateKey); err != nil {
+		return nil, fmt.Errorf("invalid %s private key: %w", record.Algorithm, err)
 	}
 
-	priv := new(kyber768.PrivateKey)
-	priv.Unpack(record.PrivateKey)
-
-	sharedSecret := make([]byte, kyber768.SharedKeySize)
+	sharedSecret := make([]byte, mlkem768.SharedKeySize)
 	priv.DecapsulateTo(sharedSecret, envelope.EncapsulatedKey)
 	defer zero(sharedSecret)
 
@@ -450,7 +446,7 @@ func deriveAEADKey(sharedSecret, salt []byte, record KeyRecord) ([]byte, error) 
 func generateKeyPair(algorithm Algorithm, randReader io.Reader) ([]byte, []byte, error) {
 	switch algorithm {
 	case AlgorithmMLKEM768:
-		pub, priv, err := kyber768.GenerateKeyPair(randReader)
+		pub, priv, err := mlkem768.GenerateKeyPair(randReader)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -588,7 +584,7 @@ func validateEnvelope(envelope *Envelope) error {
 	if len(envelope.Salt) != 32 {
 		return fmt.Errorf("%w: salt length %d", ErrInvalidEnvelope, len(envelope.Salt))
 	}
-	if len(envelope.EncapsulatedKey) != kyber768.CiphertextSize {
+	if len(envelope.EncapsulatedKey) != mlkem768.CiphertextSize {
 		return fmt.Errorf("%w: encapsulated key length %d", ErrInvalidEnvelope, len(envelope.EncapsulatedKey))
 	}
 	if len(envelope.Ciphertext) == 0 {
