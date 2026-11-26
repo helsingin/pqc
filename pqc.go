@@ -309,8 +309,3 @@ func ParseMTCTreeheadSource(data []byte, source string, publicKey *PublicKey, lo
 func DefaultMTCTreeheadLogID(source string) string {
 	return core.DefaultMTCTreeheadLogID(source)
 }
-
-// RetryAudit persists a failed audit receipt without repeating the operation.
-func RetryAudit(ctx context.Context, auditor Auditor, failure *AuditFailure) error {
-	return core.RetryAudit(ctx, auditor, failure)
-}

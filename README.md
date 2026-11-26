@@ -17,15 +17,14 @@ Use it to turn a post-quantum cryptography migration plan into working systems:
 generate keys, rotate versions, protect data, inspect real endpoints, and
 preserve repeatable evidence for engineering, vendor, and compliance reviews.
 
-Go applications can also sign with protected token keys through the optional
-[Keyman provider](docs/keyman-provider.md). It supports ML-DSA-65/87 and
-SLH-DSA-SHA2-192s/256s for artifacts and audit, transparency and MTC checkpoints,
-without exporting private keys. The existing software commands remain unchanged.
+The unreleased [`evidence` package](docs/evidence-v2.md) provides strict verification
+and required multiple signatures. Its separate v2 format binds the payload,
+metadata and complete signer policy. Verification needs public material only.
 
-For strict verification and required multiple signatures, use the new
-[`evidence` package](docs/evidence-v2.md). Its separate v2 format binds the payload,
-metadata and complete signer policy. Configured audit failures now reach callers
-with operation outcomes and retryable audit receipts; completed results are retained.
+Central key services, authentication, authorization, certificate issuance and
+service audit belong to OpenBao. This toolkit supplies cryptographic operations,
+assessment and portable evidence; Keyman supplies PKCS#11 token operations.
+See [architecture and scope](docs/architecture.md) for the integration boundary.
 
 ## Install
 

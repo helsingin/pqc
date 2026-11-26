@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"errors"
 	"fmt"
 )
@@ -37,8 +36,9 @@ func auditOperationSucceeded(err error) bool {
 }
 
 // AuditFailure means auditing failed, independently of the operation outcome.
-// A non-nil result may accompany this error when the operation succeeded. Retry
-// the receipt, not the operation. Unknown outcomes require reconciliation.
+// A non-nil result may accompany this error when the operation succeeded.
+// Do not repeat the operation automatically. The application owns reconciliation
+// and audit handling; this library supplies no durable retry queue.
 type AuditFailure struct {
 	Event          AuditEvent
 	Cause          error
@@ -46,7 +46,7 @@ type AuditFailure struct {
 }
 
 func (e *AuditFailure) Error() string {
-	return fmt.Sprintf("%s: operation %s, event %s; retain result and retry audit only (reconcile unknown outcomes): %v", ErrAuditPersistence, e.Event.Outcome, e.Event.ID, e.Cause)
+	return fmt.Sprintf("%s: operation %s, event %s; retain any result and reconcile before retrying: %v", ErrAuditPersistence, e.Event.Outcome, e.Event.ID, e.Cause)
 }
 func (e *AuditFailure) Unwrap() []error {
 	causes := []error{ErrAuditPersistence}
@@ -57,17 +57,4 @@ func (e *AuditFailure) Unwrap() []error {
 		causes = append(causes, e.OperationError)
 	}
 	return causes
-}
-
-// RetryAudit persists the same receipt using an auditor that honors stable IDs.
-// It never performs the original cryptographic/key operation. The caller owns
-// durable receipt retention if recovery must survive the calling process.
-func RetryAudit(ctx context.Context, auditor Auditor, failure *AuditFailure) error {
-	if auditor == nil || failure == nil || failure.Event.ID == "" {
-		return fmt.Errorf("audit retry requires an auditor and identified failure receipt")
-	}
-	if err := auditor.Record(ctx, failure.Event); err != nil {
-		return &AuditFailure{Event: failure.Event, Cause: err, OperationError: failure.OperationError}
-	}
-	return nil
 }

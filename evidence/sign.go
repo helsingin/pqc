@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -65,23 +64,11 @@ func policyEqual(a, b Policy) bool {
 	return true
 }
 
-// SigningAuditError retains every audit receipt from successful signatures.
-// Retry those receipts, not signing. A complete document may accompany it;
-// another signing failure still causes Sign to return no partial document.
-type SigningAuditError struct {
-	Receipts []*pqc.AuditFailure
-	causes   []error
-}
-
-func (e *SigningAuditError) Error() string {
-	return fmt.Sprintf("evidence signing has %d audit persistence failure(s); retry receipts without repeating completed operations", len(e.Receipts))
-}
-func (e *SigningAuditError) Unwrap() []error { return e.causes }
-
 // Sign requires one provider per policy signer, in policy order. Rotation to a
-// different version fails explicitly. Audit-only failures retain the complete
-// document with a SigningAuditError. Other failures return no partial document.
-func Sign(ctx context.Context, statement Statement, providers []pqc.SigningProvider, randomized bool) (document *Envelope, err error) {
+// different version fails explicitly. Any provider error returns no document.
+// Earlier provider operations may have completed; Sign never retries them.
+// Applications own operation reconciliation and audit policy.
+func Sign(ctx context.Context, statement Statement, providers []pqc.SigningProvider, randomized bool) (*Envelope, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("evidence: context is required")
 	}
@@ -98,12 +85,6 @@ func Sign(ctx context.Context, statement Statement, providers []pqc.SigningProvi
 		return nil, fmt.Errorf("evidence: provider count does not match policy")
 	}
 	result := &Envelope{Schema: Schema, Statement: statement, Signatures: make([]Signature, 0, len(providers))}
-	auditing := &SigningAuditError{}
-	defer func() {
-		if len(auditing.Receipts) > 0 {
-			err = errors.Join(err, auditing)
-		}
-	}()
 	for i, provider := range providers {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -125,12 +106,7 @@ func Sign(ctx context.Context, statement Statement, providers []pqc.SigningProvi
 		}
 		signature, err := provider.Sign(ctx, ref.KeyID, message, pqc.SignOptions{Context: []byte(SigningContext), Randomized: randomized})
 		if err != nil {
-			var failure *pqc.AuditFailure
-			if !errors.As(err, &failure) || failure.Event.Outcome != pqc.AuditSucceeded || signature == nil {
-				return nil, fmt.Errorf("evidence: signer %d: %w", i, err)
-			}
-			auditing.Receipts = append(auditing.Receipts, failure)
-			auditing.causes = append(auditing.causes, err)
+			return nil, fmt.Errorf("evidence: signer %d: %w", i, err)
 		}
 		if signature == nil || !bytes.Equal(signature.Context, []byte(SigningContext)) {
 			return nil, fmt.Errorf("evidence: provider returned wrong signing context")

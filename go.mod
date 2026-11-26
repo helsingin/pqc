@@ -2,11 +2,12 @@ module github.com/helsingin/pqc
 
 go 1.26.0
 
+// Withdrawn milestone releases: direct Keyman adapter and audit-retry scope removed.
+retract [v0.2.1, v0.2.2]
+
 require (
 	filippo.io/age v1.3.1
 	github.com/cloudflare/circl v1.6.5
-	github.com/helsingin/keyman v0.6.1
-	github.com/miekg/pkcs11 v1.1.2
 )
 
 require (

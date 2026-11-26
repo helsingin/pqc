@@ -90,7 +90,7 @@ JSON document at most 1 MiB; payload length at most 2^53-1 bytes. Limits apply t
 both construction and decoding. No signature is accepted from an algorithm
 outside ML-DSA-65/87 and SLH-DSA-SHA2-192s/256s.
 
-## Audit failures and retry contract
+## Local audit failures
 
 Configured auditing must never silently discard write failures. A manager
 operation can succeed before its audit record fails: a returned audit error must
@@ -99,33 +99,20 @@ outcome rather than blindly repeating generation, rotation or randomized signing
 An error from a store write can mean the write committed but acknowledgement
 failed; this is reported as unknown, not as proof that nothing changed.
 
-Audit receipts carry a stable event ID. Retry persists that same event; it does
-not invoke the cryptographic operation again. A durable file auditor deduplicates
-matching IDs, rejects conflicting reuse, serializes writers, repairs an incomplete
-final line, and syncs writes before acknowledging them. An append that succeeded
-before acknowledgement failed must remain a single event after retry/reopening.
-Malformed complete records fail closed rather than being silently discarded.
-
-This is idempotent audit persistence, not a distributed exactly-once operation
-protocol. A process dying before it can return a receipt leaves an uncertain
-operation outcome; reconcile stored key identity/version before deciding what
-to do. Observed cancellation and sync failures are returned. An I/O operation
-already in progress may complete even if the caller cancels concurrently.
-Underlying durable storage and exclusive ownership of log lifecycle/rotation
-remain deployment requirements. Legacy audit records without event IDs remain
-readable and keep their original bytes and checkpoint interpretation.
-
-File auditing is validated on Linux and macOS and uses OS advisory locks on
-supported Unix platforms. Other platforms fail explicitly and need another
-`Auditor` implementation. Each write scans the log to reconcile IDs; use a
-database-backed auditor for high-volume workloads. External rotation or
-replacement of an active log is not supported by this locking contract.
+Event IDs correlate an error with an attempted audit record. They do not provide
+deduplication. The local file auditor appends and syncs records; use one writer
+per file. It does not implement durable retries, log repair or multi-process
+coordination. A failed append or sync may have written data. Applications own
+reconciliation and audit retention. OpenBao owns audit handling for operations
+performed through OpenBao. Neither audit log is a trusted timestamp or a portable
+evidence package. See [architecture and scope](architecture.md).
 
 ## Go API and migration
 
-Import `github.com/helsingin/pqc/evidence`. The package works with the software
-manager and optional Keyman provider. Keyman v0.6.1 already supplies the required
-operations; no Keyman upgrade is introduced by this milestone.
+Import `github.com/helsingin/pqc/evidence`. The software manager implements the
+small `SigningProvider` contract. No Keyman or OpenBao adapter is bundled.
+Any application-specific provider must honor exact bytes, context, algorithm,
+key version and signing mode; unsupported requests must fail explicitly.
 
 `KeyReference` derives a reference from public key bytes. Establish that key's
 trust separately, then place its reference into your configured policy. Never
@@ -139,15 +126,14 @@ statement, err := evidence.NewStatement(
 if err != nil {
     return nil, err
 }
-document, signingErr := evidence.Sign(ctx, statement, providers, false)
-if document == nil {
-    return nil, signingErr
+document, err := evidence.Sign(ctx, statement, providers, false)
+if err != nil {
+    return nil, err
 }
 if err := evidence.Verify(document, payload, trustedPolicy, trustedKeys, time.Now()); err != nil {
-    return nil, errors.Join(signingErr, err)
+    return nil, err
 }
-// Retain the complete document even when signingErr reports audit failures.
-return document, signingErr
+return document, nil
 ```
 
 Providers and trusted keys are supplied in policy order. A changed key version
@@ -155,11 +141,10 @@ or public key fails rather than silently updating the policy. `false` requests
 deterministic signing; `true` requests randomized signing. Neither changes the
 fixed signing context. Signing failures return no partial evidence document.
 
-If every signature succeeds but audit persistence fails, `Sign` returns the
-complete document plus `*evidence.SigningAuditError`. Its `Receipts` retain all
-underlying `*pqc.AuditFailure` values. Retry each with `pqc.RetryAudit` and the
-auditor that originally owned it. If a later signer fails, no complete document
-is returned, but earlier audit receipts remain available through the error chain.
+Any provider error, including an audit failure after successful signing, stops
+`Sign` and returns no evidence document. The wrapped provider error remains
+available for application handling. Earlier signing operations may have completed;
+no operation is automatically retried and no retry queue is created.
 
 For direct manager operations, use `errors.As(err, &auditFailure)` to inspect
 `Event.Outcome` and retain any accompanying result. `succeeded` means the original
@@ -171,15 +156,12 @@ when auditing itself succeeded. Error chains preserve underlying causes.
 This intentionally changes failure behaviour when auditing is configured:
 failures previously ignored now produce errors. Calls without an auditor keep
 their ordinary behaviour, apart from explicit uncertainty on store write errors.
-There is no automatic operation retry. File audit receipts have durable
-deduplication across reopening and processes; custom auditors must implement
-the same ID contract.
+There is no automatic operation retry or audit replay API.
 
 The daemon returns HTTP 500 with `audit_failure` and, for a completed operation,
 `result`. The remote client retains both the decoded result and typed audit error.
 The error body's result is as sensitive as an ordinary successful response;
-do not copy it into logs. No public audit-retry endpoint is exposed: reconciliation
-and audit replay are trusted administrative/application operations.
+do not copy it into logs. Reconciliation belongs to the application.
 
 To wrap an existing artifact or checkpoint, serialize the exact v1 document as
 the payload and choose an explicit purpose/media type in the trusted v2 policy.
@@ -193,15 +175,14 @@ go test -race ./...
 go vet ./...
 CGO_ENABLED=0 go test ./...
 python3 scripts/check-evidence-vectors.py
-KEYMAN_INTEROP_IMAGE=keyman-softhsm:latest scripts/test-keyman-provider.sh
-scripts/test-backward-compat.sh /path/to/pqc-v0.2.1 bin/pqc --old-with-slh
+scripts/test-backward-compat.sh /path/to/pqc-v0.2.0 bin/pqc --old-with-slh
 ```
 
 The static public-only fixture covers all four signature algorithms. A separate
 Python standard-library encoder checks the exact signing bytes, payload hash and
-public-key commitments; Go verifies its signatures. The token suite independently
-checks the Keyman/SoftHSM path, including ML-DSA + SLH-DSA pairs at Categories 3
-and 5, stripping/downgrade rejection and private-object protections. Python needs
+public-key commitments; Go verifies its signatures. Policy tests cover required
+ML-DSA + SLH-DSA pairs, stripping/downgrade rejection and provider errors.
+These checks do not establish a token or remote-service integration. Python needs
 no additional packages. Fixture regeneration is explicit:
 
 ```sh
@@ -213,10 +194,6 @@ Only public keys, payload, signatures and canonical vectors are saved. Temporary
 private test keys are removed by the Go test harness. Review regenerated vectors
 as new fixtures; do not regenerate them merely to make a failing check pass.
 
-Validated on 27 November 2026 with Go 1.26.4 on macOS arm64, container Go
-1.26.11 on Linux arm64, CIRCL v1.6.5 and released Keyman v0.6.1. Full tests,
-race checks, vet, software-only tests, both command builds, independent Python
-vectors and the disposable SoftHSM suite passed. Decoder fuzzing completed
-47,748 executions without a failure. All four signature algorithms and ML-KEM
-interoperated in both directions with the v0.2.1 CLI. Hardware-token support
-requires separate validation; no hardware certification is implied by SoftHSM.
+The withdrawn v0.2.2 release's token-provider results are historical and do not
+describe the current package, which no longer includes that provider. Current
+software and interoperability checks must be rerun for each release candidate.

@@ -1,20 +1,13 @@
 package core
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
-	"unicode/utf8"
-
-	"github.com/helsingin/pqc/internal/strictjson"
 )
 
 // AuditEvent is a metadata-only record for key manager operations. It must not
@@ -31,9 +24,7 @@ type AuditEvent struct {
 	Error      string       `json:"error,omitempty"`
 }
 
-// Auditor records metadata-only key manager events. Implementations must return
-// persistence failures. Stable event IDs must be idempotent: identical retries
-// succeed without another event, while conflicting ID reuse must fail.
+// Auditor records metadata-only key manager events.
 type Auditor interface {
 	Record(context.Context, AuditEvent) error
 }
@@ -45,11 +36,12 @@ func (f AuditorFunc) Record(ctx context.Context, event AuditEvent) error {
 	return f(ctx, event)
 }
 
-// FileAuditor appends one JSON audit event per line.
+// FileAuditor appends metadata to a local log. It is not an audit replay queue:
+// event IDs correlate failures but do not provide deduplication. Use one writer
+// per file. Central-service auditing belongs to that service.
 type FileAuditor struct {
-	mu       sync.Mutex
-	path     string
-	syncFile func(*os.File) error
+	mu   sync.Mutex
+	path string
 }
 
 func NewFileAuditor(path string) (*FileAuditor, error) {
@@ -69,116 +61,33 @@ func NewFileAuditor(path string) (*FileAuditor, error) {
 	if err := os.Chmod(path, 0o600); err != nil {
 		return nil, err
 	}
-	return &FileAuditor{path: path, syncFile: (*os.File).Sync}, nil
+	return &FileAuditor{path: path}, nil
 }
 
-// Record serializes writers with a process-local mutex and an OS file lock.
-// A successful return includes fsync of the file and its directory. Existing
-// events without IDs remain readable; only identified events are deduplicated.
-func (a *FileAuditor) Record(ctx context.Context, event AuditEvent) (err error) {
+func (a *FileAuditor) Record(ctx context.Context, event AuditEvent) error {
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-	event.Time = event.Time.UTC()
-	for _, value := range []string{event.ID, event.Operation, event.KeyID, string(event.Algorithm), event.Error} {
-		if !utf8.ValidString(value) {
-			return fmt.Errorf("audit event contains invalid UTF-8")
-		}
 	}
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-	const maxRecord = 64 << 10
-	if len(data)+1 > maxRecord {
-		return fmt.Errorf("audit event exceeds 64 KiB")
-	}
-	if event.ID != "" {
-		if len(event.ID) > 256 || event.Operation == "" || event.Time.IsZero() {
-			return fmt.Errorf("invalid identified audit event")
-		}
-		switch event.Outcome {
-		case AuditSucceeded:
-			if !event.Success {
-				return fmt.Errorf("inconsistent audit success")
-			}
-		case AuditFailed, AuditUnknown:
-			if event.Success {
-				return fmt.Errorf("inconsistent audit failure")
-			}
-		default:
-			return fmt.Errorf("invalid audit outcome")
-		}
-	}
+	data = append(data, '\n')
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	file, err := os.OpenFile(a.path, os.O_CREATE|os.O_RDWR, 0600)
+
+	file, err := os.OpenFile(a.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, file.Close()) }()
-	if err := lockAudit(ctx, file); err != nil {
+	if _, err := file.Write(data); err != nil {
+		_ = file.Close()
 		return err
 	}
-	defer func() { err = errors.Join(err, unlockAudit(file)) }()
-	if err := ctx.Err(); err != nil {
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
 		return err
 	}
-	reader := bufio.NewReaderSize(file, maxRecord)
-	var offset int64
-	found := false
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		line, readErr := reader.ReadSlice('\n')
-		if readErr == io.EOF {
-			if len(line) > 0 {
-				if err := file.Truncate(offset); err != nil {
-					return fmt.Errorf("repair incomplete audit tail: %w", err)
-				}
-			}
-			break
-		}
-		if readErr != nil {
-			return fmt.Errorf("read audit record at offset %d: %w", offset, readErr)
-		}
-		var previous AuditEvent
-		if err := strictjson.Decode(line, &previous, false); err != nil {
-			return fmt.Errorf("corrupt complete audit record at offset %d: %w", offset, err)
-		}
-		if event.ID != "" && previous.ID == event.ID {
-			previous.Time = previous.Time.UTC()
-			canonical, err := json.Marshal(previous)
-			if err != nil || !bytes.Equal(canonical, data) {
-				return fmt.Errorf("conflicting audit event ID %s", event.ID)
-			}
-			found = true
-		}
-		offset += int64(len(line))
-	}
-	if !found {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if _, err := file.Seek(offset, io.SeekStart); err != nil {
-			return err
-		}
-		data = append(data, '\n')
-		n, err := file.Write(data)
-		if err != nil {
-			return err
-		}
-		if n != len(data) {
-			return io.ErrShortWrite
-		}
-	}
-	if err := a.syncFile(file); err != nil {
-		return err
-	}
-	directory, err := os.Open(filepath.Dir(a.path))
-	if err != nil {
-		return err
-	}
-	return errors.Join(directory.Sync(), directory.Close())
+	return file.Close()
 }

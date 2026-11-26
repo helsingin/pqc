@@ -129,28 +129,19 @@ func (p auditFailureProvider) Sign(ctx context.Context, id string, message []byt
 	return signature, &pqc.AuditFailure{Event: pqc.AuditEvent{ID: p.id, Operation: "sign", KeyID: id, KeyVersion: signature.KeyVersion, Outcome: pqc.AuditSucceeded, Success: true}, Cause: errors.New("audit unavailable")}
 }
 
-func TestCompletedEvidenceRetainsEveryAuditReceipt(t *testing.T) {
-	statement, providers, keys := fixture(t, pqc.AlgorithmMLDSA65, pqc.AlgorithmSLHDSASHA2192s)
+func TestEvidenceStopsOnAuditFailureWithoutRetry(t *testing.T) {
+	statement, providers, _ := fixture(t, pqc.AlgorithmMLDSA65, pqc.AlgorithmSLHDSASHA2192s)
 	calls := 0
 	for i := range providers {
 		providers[i] = auditFailureProvider{providers[i], statement.Policy.Signers[i].KeyID, &calls}
 	}
 	document, err := Sign(t.Context(), statement, providers, false)
-	var auditing *SigningAuditError
-	if document == nil || !errors.As(err, &auditing) || !errors.Is(err, pqc.ErrAuditPersistence) || len(auditing.Receipts) != 2 {
-		t.Fatalf("completed evidence/receipts lost: %v", err)
+	var failure *pqc.AuditFailure
+	if document != nil || !errors.As(err, &failure) || !errors.Is(err, pqc.ErrAuditPersistence) || failure.Event.Outcome != pqc.AuditSucceeded {
+		t.Fatalf("audit failure lost or incomplete evidence returned: %v", err)
 	}
-	if err := Verify(document, []byte("retained evidence"), statement.Policy, keys, time.Unix(statement.ClaimedAt+1, 0)); err != nil {
-		t.Fatal(err)
-	}
-	retried := map[string]bool{}
-	for _, receipt := range auditing.Receipts {
-		if err := pqc.RetryAudit(t.Context(), pqc.AuditorFunc(func(_ context.Context, event pqc.AuditEvent) error { retried[event.ID] = true; return nil }), receipt); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if len(retried) != 2 || calls != 2 {
-		t.Fatal("retry lost receipts or repeated signing")
+	if calls != 1 {
+		t.Fatal("signing continued or retried after provider failure")
 	}
 }
 

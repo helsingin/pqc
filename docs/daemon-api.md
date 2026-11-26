@@ -4,6 +4,11 @@
 mode the CLI sends key operations to the daemon, and the daemon remains the only
 process that opens the key store.
 
+This existing daemon is a local development tool. Central production key-service
+work belongs to OpenBao; new authentication, policy, certificate administration
+or audit-replay services are outside this daemon's scope. See
+[architecture and scope](architecture.md).
+
 Key creation accepts `SLH-DSA-SHA2-192s` and `SLH-DSA-SHA2-256s` alongside
 the existing ML-DSA and ML-KEM algorithms. `/v1/sign` and `/v1/verify` use the
 same JSON request and signature-envelope shapes for both signature families.
@@ -14,9 +19,10 @@ the daemon's HTTPS certificate or client authentication. See [SLH-DSA](slh-dsa.m
 Configured audit-write failures now return HTTP 500 with an `audit_failure`
 receipt. Its `outcome` distinguishes `succeeded`, `failed` and `unknown`; completed
 operations also return their `result`. Do not automatically retry an operation
-because this response is an error. Retain the result and replay the audit receipt
-through the owning auditor. A failed store acknowledgement requires reconciliation
-of the reported key/version. See [audit durability and retry semantics](evidence-v2.md#audit-failures-and-retry-contract).
+because this response is an error. Retain the result and handle the audit failure
+in the application. A failed store acknowledgement requires reconciliation
+of the reported key/version. No audit retry or deduplication API is provided.
+See [local audit failures](evidence-v2.md#local-audit-failures).
 
 ## Start The Daemon
 
