@@ -48,10 +48,8 @@ type Subject struct {
 	URIs       []string `json:"uris,omitempty"`
 }
 
-type Signer interface {
-	Sign(context.Context, string, []byte, pqc.SignOptions) (*pqc.SignatureEnvelope, error)
-	ExportPublic(context.Context, string) (*pqc.PublicKey, error)
-}
+// Signer is the shared signing-provider boundary.
+type Signer = pqc.SigningProvider
 
 type IssueRequest struct {
 	Profile        string          `json:"profile"`

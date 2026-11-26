@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # Supply the previous-release binary; all generated keys are temporary.
 set -euo pipefail
-old=${1:?Usage: test-backward-compat.sh OLD_PQC [NEW_PQC]}
+old=${1:?Usage: test-backward-compat.sh OLD_PQC [NEW_PQC] [--old-with-slh]}
 pqc_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 new=${2:-$pqc_dir/bin/pqc}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 printf 'Existing PQC compatibility fixture\n' > "$work/message"
 
-for algorithm in ml-dsa-65 ml-dsa-87; do
+algorithms=(ml-dsa-65 ml-dsa-87)
+if [[ "${3:-}" == --old-with-slh ]]; then
+  algorithms+=(slh-dsa-sha2-192s slh-dsa-sha2-256s)
+elif [[ -n "${3:-}" ]]; then
+  printf 'Unknown option: %s\n' "$3" >&2
+  exit 2
+fi
+for algorithm in "${algorithms[@]}"; do
   "$old" keys create --store "$work/keys" --type "$algorithm" --id "$algorithm" >/dev/null
   "$old" sign --store "$work/keys" --key "$algorithm" --context compatibility "$work/message" > "$work/old.sig"
   "$new" verify --store "$work/keys" "$work/message" "$work/old.sig"
@@ -24,6 +31,10 @@ cmp "$work/message" "$work/plain"
 "$old" decrypt --store "$work/keys" "$work/new.enc" > "$work/plain"
 cmp "$work/message" "$work/plain"
 
+if [[ "${3:-}" == --old-with-slh ]]; then
+  printf 'PASS: all four signature algorithms and ML-KEM interoperate in both directions.\n'
+  exit 0
+fi
 for algorithm in slh-dsa-sha2-192s slh-dsa-sha2-256s; do
   "$new" keys create --store "$work/slh" --type "$algorithm" --id "$algorithm" >/dev/null
   "$new" sign --store "$work/slh" --key "$algorithm" "$work/message" > "$work/slh.sig"

@@ -57,6 +57,8 @@ type (
 
 	Envelope          = core.Envelope
 	SignatureEnvelope = core.SignatureEnvelope
+	Signer            = core.Signer
+	SigningProvider   = core.SigningProvider
 
 	Store           = core.Store
 	KeyRecord       = core.KeyRecord
