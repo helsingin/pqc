@@ -15,6 +15,10 @@ const (
 	AlgorithmSLHDSASHA2192s = core.AlgorithmSLHDSASHA2192s
 	AlgorithmSLHDSASHA2256s = core.AlgorithmSLHDSASHA2256s
 
+	AuditSucceeded = core.AuditSucceeded
+	AuditFailed    = core.AuditFailed
+	AuditUnknown   = core.AuditUnknown
+
 	KeyUseKEM       = core.KeyUseKEM
 	KeyUseSignature = core.KeyUseSignature
 
@@ -49,6 +53,7 @@ var (
 	ErrKeyExists        = core.ErrKeyExists
 	ErrInvalidEnvelope  = core.ErrInvalidEnvelope
 	ErrInvalidSignature = core.ErrInvalidSignature
+	ErrAuditPersistence = core.ErrAuditPersistence
 )
 
 type (
@@ -71,10 +76,13 @@ type (
 	Manager = core.Manager
 	Option  = core.Option
 
-	AuditEvent  = core.AuditEvent
-	Auditor     = core.Auditor
-	AuditorFunc = core.AuditorFunc
-	FileAuditor = core.FileAuditor
+	AuditEvent              = core.AuditEvent
+	AuditOutcome            = core.AuditOutcome
+	AuditFailure            = core.AuditFailure
+	UncertainOperationError = core.UncertainOperationError
+	Auditor                 = core.Auditor
+	AuditorFunc             = core.AuditorFunc
+	FileAuditor             = core.FileAuditor
 
 	AuditCheckpoint        = core.AuditCheckpoint
 	InventoryEntry         = core.InventoryEntry
@@ -300,4 +308,9 @@ func ParseMTCTreeheadSource(data []byte, source string, publicKey *PublicKey, lo
 
 func DefaultMTCTreeheadLogID(source string) string {
 	return core.DefaultMTCTreeheadLogID(source)
+}
+
+// RetryAudit persists a failed audit receipt without repeating the operation.
+func RetryAudit(ctx context.Context, auditor Auditor, failure *AuditFailure) error {
+	return core.RetryAudit(ctx, auditor, failure)
 }

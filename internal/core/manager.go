@@ -7,6 +7,7 @@ import (
 	"crypto/hkdf"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -71,7 +72,7 @@ func (m *Manager) Generate(ctx context.Context, req GenerateRequest) (meta *KeyM
 			event.KeyVersion = meta.Version
 			event.Algorithm = meta.Algorithm
 		}
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	if err := validateKeyID(req.ID); err != nil {
@@ -90,8 +91,10 @@ func (m *Manager) Generate(ctx context.Context, req GenerateRequest) (meta *KeyM
 	if err != nil {
 		return nil, err
 	}
+	event.Outcome = AuditUnknown // A failed store acknowledgement may follow a committed write.
+	event.KeyVersion = record.Version
 	if err := m.store.Put(ctx, record); err != nil {
-		return nil, err
+		return nil, &UncertainOperationError{Operation: event.Operation, KeyID: record.ID, KeyVersion: record.Version, Cause: err}
 	}
 	generated := metadataFromRecord(record, true)
 	return &generated, nil
@@ -107,7 +110,7 @@ func (m *Manager) Rotate(ctx context.Context, id string) (meta *KeyMetadata, err
 			event.Algorithm = meta.Algorithm
 			event.KeyVersion = meta.Version
 		}
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	latest, err := m.store.Get(ctx, id)
@@ -120,8 +123,10 @@ func (m *Manager) Rotate(ctx context.Context, id string) (meta *KeyMetadata, err
 	if err != nil {
 		return nil, err
 	}
+	event.Outcome = AuditUnknown // A failed store acknowledgement may follow a committed write.
+	event.KeyVersion = record.Version
 	if err := m.store.Put(ctx, record); err != nil {
-		return nil, err
+		return nil, &UncertainOperationError{Operation: event.Operation, KeyID: record.ID, KeyVersion: record.Version, Cause: err}
 	}
 	rotated := metadataFromRecord(record, true)
 	return &rotated, nil
@@ -137,7 +142,7 @@ func (m *Manager) Get(ctx context.Context, id string) (meta *KeyMetadata, err er
 			event.Algorithm = meta.Algorithm
 			event.KeyVersion = meta.Version
 		}
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	record, err := m.store.Get(ctx, id)
@@ -151,7 +156,7 @@ func (m *Manager) Get(ctx context.Context, id string) (meta *KeyMetadata, err er
 func (m *Manager) List(ctx context.Context) (keys []KeyMetadata, err error) {
 	event := AuditEvent{Operation: "key.list"}
 	defer func() {
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 	return m.store.List(ctx)
 }
@@ -166,7 +171,7 @@ func (m *Manager) ExportPublic(ctx context.Context, id string) (publicKey *Publi
 			event.Algorithm = publicKey.Algorithm
 			event.KeyVersion = publicKey.Version
 		}
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	record, err := m.store.Get(ctx, id)
@@ -193,7 +198,7 @@ func (m *Manager) Encrypt(ctx context.Context, keyID string, plaintext []byte, o
 			event.Algorithm = envelope.KEM
 			event.KeyVersion = envelope.KeyVersion
 		}
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	record, err := m.store.Get(ctx, keyID)
@@ -266,7 +271,7 @@ func (m *Manager) Decrypt(ctx context.Context, envelope *Envelope, opts EncryptO
 		event.KeyVersion = envelope.KeyVersion
 	}
 	defer func() {
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	if err := validateEnvelope(envelope); err != nil {
@@ -322,7 +327,7 @@ func (m *Manager) Sign(ctx context.Context, keyID string, message []byte, opts S
 			event.Algorithm = signature.Algorithm
 			event.KeyVersion = signature.KeyVersion
 		}
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	if len(opts.Context) > 255 {
@@ -361,7 +366,7 @@ func (m *Manager) Verify(ctx context.Context, message []byte, sig *SignatureEnve
 		event.KeyVersion = sig.KeyVersion
 	}
 	defer func() {
-		m.recordAudit(ctx, event, err)
+		err = m.recordAudit(ctx, event, err)
 	}()
 
 	if err := validateSignature(sig); err != nil {
@@ -402,16 +407,29 @@ func VerifyWithPublicKey(publicKey PublicKey, message []byte, sig *SignatureEnve
 	}, message, sig)
 }
 
-func (m *Manager) recordAudit(ctx context.Context, event AuditEvent, operationErr error) {
+func (m *Manager) recordAudit(ctx context.Context, event AuditEvent, operationErr error) error {
 	if m.auditor == nil {
-		return
+		return operationErr
 	}
 	event.Time = m.now().UTC()
 	event.Success = operationErr == nil
-	if operationErr != nil {
+	if operationErr == nil {
+		event.Outcome = AuditSucceeded
+	} else {
 		event.Error = operationErr.Error()
+		if event.Outcome != AuditUnknown {
+			event.Outcome = AuditFailed
+		}
 	}
-	_ = m.auditor.Record(ctx, event)
+	var id [16]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return &AuditFailure{Event: event, Cause: err, OperationError: operationErr}
+	}
+	event.ID = hex.EncodeToString(id[:])
+	if err := m.auditor.Record(ctx, event); err != nil {
+		return &AuditFailure{Event: event, Cause: err, OperationError: operationErr}
+	}
+	return operationErr
 }
 
 func (m *Manager) generateRecord(id string, algorithm Algorithm, version int) (KeyRecord, error) {

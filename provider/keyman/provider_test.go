@@ -15,6 +15,7 @@ import (
 	keyring "github.com/helsingin/keyman"
 	"github.com/helsingin/keyman/pkcs11"
 	"github.com/helsingin/pqc"
+	"github.com/helsingin/pqc/evidence"
 	"github.com/helsingin/pqc/profile"
 	adapter "github.com/helsingin/pqc/provider/keyman"
 	"github.com/helsingin/pqc/store/file"
@@ -329,5 +330,29 @@ func exerciseEvidence(t *testing.T, signer pqc.SigningProvider, public *pqc.Publ
 		t.Fatal(err)
 	}
 	check(checkpoint.Signature, func() error { return pqc.VerifyMTCProof(proof, checkpoint, public) })
+
+	ref, err := evidence.KeyReference(*public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := evidence.Policy{Schema: evidence.PolicySchema, ID: "protected-evidence", Version: 1, Purpose: "checkpoint", Context: "integration", NotBefore: now.Unix() - 1, NotAfter: now.Unix() + 3600, Signers: []evidence.SignerRef{ref}}
+	statement, err := evidence.NewStatement(policy, []byte(log), "application/jsonl", now, []evidence.Field{{Key: "kind", Value: "audit"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := evidence.Sign(ctx, statement, []pqc.SigningProvider{signer}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verify := func() error { return evidence.Verify(document, []byte(log), policy, []pqc.PublicKey{*public}, now) }
+	if err := verify(); err != nil {
+		t.Fatal(err)
+	}
+	document.Statement.Metadata[0].Value = "forged"
+	if err := verify(); err == nil {
+		t.Fatal("v2 metadata tampering accepted")
+	}
+	document.Statement.Metadata[0].Value = "audit"
+	offline = append(offline, verify)
 	return offline
 }

@@ -224,6 +224,11 @@ func (s *server) verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.manager.Verify(r.Context(), req.Message, &req.Signature); err != nil {
+		var failure *pqc.AuditFailure
+		if errors.As(err, &failure) && failure.Event.Outcome == pqc.AuditSucceeded {
+			writeResult(w, verifyResponse{OK: true}, err)
+			return
+		}
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -340,6 +345,17 @@ func decodeRequest(w http.ResponseWriter, r *http.Request, value any) bool {
 
 func writeResult(w http.ResponseWriter, value any, err error) {
 	if err != nil {
+		var failure *pqc.AuditFailure
+		if errors.As(err, &failure) {
+			body := map[string]any{"error": err.Error(), "audit_failure": failure.Event}
+			if failure.Event.Outcome == pqc.AuditSucceeded {
+				body["result"] = value
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(body)
+			return
+		}
 		writeError(w, statusForError(err), err)
 		return
 	}
@@ -352,15 +368,29 @@ func writeResult(w http.ResponseWriter, value any, err error) {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
+	var failure *pqc.AuditFailure
+	if errors.As(err, &failure) {
+		writeResult(w, nil, err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	body := map[string]any{"error": err.Error()}
+	var uncertain *pqc.UncertainOperationError
+	if errors.As(err, &uncertain) {
+		body["operation_outcome"] = pqc.AuditUnknown
+		body["key_id"] = uncertain.KeyID
+		body["key_version"] = uncertain.KeyVersion
+	}
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 func statusForError(err error) int {
 	switch {
 	case err == nil:
 		return http.StatusOK
+	case errors.Is(err, pqc.ErrAuditPersistence):
+		return http.StatusInternalServerError
 	case errors.Is(err, pqc.ErrKeyNotFound):
 		return http.StatusNotFound
 	case errors.Is(err, pqc.ErrKeyExists):

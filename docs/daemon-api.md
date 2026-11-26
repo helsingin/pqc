@@ -11,6 +11,13 @@ The `context` field is base64-encoded bytes (maximum 255 decoded bytes);
 `randomized` defaults to false. This changes artifact signing options, not
 the daemon's HTTPS certificate or client authentication. See [SLH-DSA](slh-dsa.md).
 
+Configured audit-write failures now return HTTP 500 with an `audit_failure`
+receipt. Its `outcome` distinguishes `succeeded`, `failed` and `unknown`; completed
+operations also return their `result`. Do not automatically retry an operation
+because this response is an error. Retain the result and replay the audit receipt
+through the owning auditor. A failed store acknowledgement requires reconciliation
+of the reported key/version. See [audit durability and retry semantics](evidence-v2.md#audit-failures-and-retry-contract).
+
 ## Start The Daemon
 
 Start the optional daemon:

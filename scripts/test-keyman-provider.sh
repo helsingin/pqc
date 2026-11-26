@@ -13,7 +13,7 @@ image=${KEYMAN_INTEROP_IMAGE:-keyman-softhsm:latest}
     export GOWORK=off
     mkdir -p /tmp/pqc
     cp /sources/pqc/go.mod /sources/pqc/go.sum /sources/pqc/pqc.go /tmp/pqc/
-    cp -R /sources/pqc/internal /sources/pqc/profile /sources/pqc/profiles /sources/pqc/store /sources/pqc/provider /tmp/pqc/
+    cp -R /sources/pqc/internal /sources/pqc/profile /sources/pqc/profiles /sources/pqc/store /sources/pqc/provider /sources/pqc/evidence /tmp/pqc/
     cd /tmp/pqc
     go version
     go list -m github.com/helsingin/keyman github.com/cloudflare/circl

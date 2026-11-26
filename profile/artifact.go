@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -25,6 +26,10 @@ func SignArtifact(ctx context.Context, signer Signer, signKey string, artifact *
 	}
 	signature, err := signer.Sign(ctx, signKey, message, pqc.SignOptions{Context: artifactSignatureContext})
 	if err != nil {
+		var failure *pqc.AuditFailure
+		if signature != nil && errors.As(err, &failure) && failure.Event.Outcome == pqc.AuditSucceeded {
+			artifact.Signature = signature
+		}
 		return err
 	}
 	artifact.Signature = signature

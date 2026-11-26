@@ -1,0 +1,73 @@
+package core
+
+import (
+	"context"
+	"errors"
+	"fmt"
+)
+
+type AuditOutcome string
+
+const (
+	AuditSucceeded AuditOutcome = "succeeded"
+	AuditFailed    AuditOutcome = "failed"
+	AuditUnknown   AuditOutcome = "unknown"
+)
+
+var ErrAuditPersistence = errors.New("audit persistence failed")
+
+// UncertainOperationError means a store write returned an error after being
+// attempted. The store may have committed it. Reconcile the named key version
+// before retrying; this error is not evidence that the write did not occur.
+type UncertainOperationError struct {
+	Operation  string
+	KeyID      string
+	KeyVersion int
+	Cause      error
+}
+
+func (e *UncertainOperationError) Error() string {
+	return fmt.Sprintf("%s outcome unknown for key %s version %d; reconcile before retrying: %v", e.Operation, e.KeyID, e.KeyVersion, e.Cause)
+}
+func (e *UncertainOperationError) Unwrap() error { return e.Cause }
+
+func auditOperationSucceeded(err error) bool {
+	var failure *AuditFailure
+	return errors.As(err, &failure) && failure.Event.Outcome == AuditSucceeded
+}
+
+// AuditFailure means auditing failed, independently of the operation outcome.
+// A non-nil result may accompany this error when the operation succeeded. Retry
+// the receipt, not the operation. Unknown outcomes require reconciliation.
+type AuditFailure struct {
+	Event          AuditEvent
+	Cause          error
+	OperationError error
+}
+
+func (e *AuditFailure) Error() string {
+	return fmt.Sprintf("%s: operation %s, event %s; retain result and retry audit only (reconcile unknown outcomes): %v", ErrAuditPersistence, e.Event.Outcome, e.Event.ID, e.Cause)
+}
+func (e *AuditFailure) Unwrap() []error {
+	causes := []error{ErrAuditPersistence}
+	if e.Cause != nil {
+		causes = append(causes, e.Cause)
+	}
+	if e.OperationError != nil {
+		causes = append(causes, e.OperationError)
+	}
+	return causes
+}
+
+// RetryAudit persists the same receipt using an auditor that honors stable IDs.
+// It never performs the original cryptographic/key operation. The caller owns
+// durable receipt retention if recovery must survive the calling process.
+func RetryAudit(ctx context.Context, auditor Auditor, failure *AuditFailure) error {
+	if auditor == nil || failure == nil || failure.Event.ID == "" {
+		return fmt.Errorf("audit retry requires an auditor and identified failure receipt")
+	}
+	if err := auditor.Record(ctx, failure.Event); err != nil {
+		return &AuditFailure{Event: failure.Event, Cause: err, OperationError: failure.OperationError}
+	}
+	return nil
+}

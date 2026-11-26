@@ -22,6 +22,11 @@ Go applications can also sign with protected token keys through the optional
 SLH-DSA-SHA2-192s/256s for artifacts and audit, transparency and MTC checkpoints,
 without exporting private keys. The existing software commands remain unchanged.
 
+For strict verification and required multiple signatures, use the new
+[`evidence` package](docs/evidence-v2.md). Its separate v2 format binds the payload,
+metadata and complete signer policy. Configured audit failures now reach callers
+with operation outcomes and retryable audit receipts; completed results are retained.
+
 ## Install
 
 ```sh

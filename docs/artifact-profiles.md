@@ -9,6 +9,11 @@ In `pqc`, a profile means an artifact profile: a named plugin boundary for one
 PQC certificate/signature artifact family. It is broader than a traditional CA
 certificate issuance profile, though a profile may eventually contain one.
 
+These profile artifacts retain their existing v1 semantics. To bind an artifact
+to an explicit trusted signer policy with required multiple signatures, wrap its
+exact serialized bytes using [evidence v2](evidence-v2.md). This is a separate
+signed statement, not an in-place change to historical artifacts.
+
 ## Commands
 
 ```sh

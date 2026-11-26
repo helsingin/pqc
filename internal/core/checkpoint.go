@@ -102,6 +102,9 @@ func SignAuditCheckpoint(ctx context.Context, manager interface {
 	}
 	signature, err := manager.Sign(ctx, signKey, message, SignOptions{Context: auditCheckpointContext})
 	if err != nil {
+		if signature != nil && auditOperationSucceeded(err) {
+			checkpoint.Signature = signature
+		}
 		return err
 	}
 	checkpoint.Signature = signature
@@ -240,6 +243,9 @@ func SignTransparencyCheckpoint(ctx context.Context, manager interface {
 	}
 	signature, err := manager.Sign(ctx, signKey, message, SignOptions{Context: transparencyCheckpointContext})
 	if err != nil {
+		if signature != nil && auditOperationSucceeded(err) {
+			checkpoint.Signature = signature
+		}
 		return err
 	}
 	checkpoint.Signature = signature

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +21,9 @@ type remoteClient struct {
 }
 
 type remoteError struct {
-	Error string `json:"error"`
+	Error        string          `json:"error"`
+	AuditFailure *pqc.AuditEvent `json:"audit_failure"`
+	Result       json.RawMessage `json:"result"`
 }
 
 type remoteEncryptRequest struct {
@@ -99,6 +102,9 @@ func (c *remoteClient) Generate(ctx context.Context, req pqc.GenerateRequest) (*
 	}
 	var out pqc.KeyMetadata
 	if err := c.do(ctx, http.MethodPost, "/v1/keys", body, &out); err != nil {
+		if completedAuditFailure(err) {
+			return &out, err
+		}
 		return nil, err
 	}
 	return &out, nil
@@ -107,6 +113,9 @@ func (c *remoteClient) Generate(ctx context.Context, req pqc.GenerateRequest) (*
 func (c *remoteClient) Rotate(ctx context.Context, id string) (*pqc.KeyMetadata, error) {
 	var out pqc.KeyMetadata
 	if err := c.do(ctx, http.MethodPost, "/v1/keys/"+url.PathEscape(id)+"/rotate", nil, &out); err != nil {
+		if completedAuditFailure(err) {
+			return &out, err
+		}
 		return nil, err
 	}
 	return &out, nil
@@ -115,6 +124,9 @@ func (c *remoteClient) Rotate(ctx context.Context, id string) (*pqc.KeyMetadata,
 func (c *remoteClient) Get(ctx context.Context, id string) (*pqc.KeyMetadata, error) {
 	var out pqc.KeyMetadata
 	if err := c.do(ctx, http.MethodGet, "/v1/keys/"+url.PathEscape(id), nil, &out); err != nil {
+		if completedAuditFailure(err) {
+			return &out, err
+		}
 		return nil, err
 	}
 	return &out, nil
@@ -123,6 +135,9 @@ func (c *remoteClient) Get(ctx context.Context, id string) (*pqc.KeyMetadata, er
 func (c *remoteClient) List(ctx context.Context) ([]pqc.KeyMetadata, error) {
 	var out []pqc.KeyMetadata
 	if err := c.do(ctx, http.MethodGet, "/v1/keys", nil, &out); err != nil {
+		if completedAuditFailure(err) {
+			return out, err
+		}
 		return nil, err
 	}
 	return out, nil
@@ -130,7 +145,7 @@ func (c *remoteClient) List(ctx context.Context) ([]pqc.KeyMetadata, error) {
 
 func (c *remoteClient) ExportPublic(ctx context.Context, id string) (*pqc.PublicKey, error) {
 	meta, err := c.Get(ctx, id)
-	if err != nil {
+	if meta == nil {
 		return nil, err
 	}
 	return &pqc.PublicKey{
@@ -140,7 +155,7 @@ func (c *remoteClient) ExportPublic(ctx context.Context, id string) (*pqc.Public
 		Version:   meta.Version,
 		PublicKey: append([]byte(nil), meta.PublicKey...),
 		CreatedAt: meta.CreatedAt,
-	}, nil
+	}, err
 }
 
 func (c *remoteClient) Encrypt(ctx context.Context, keyID string, plaintext []byte, opts pqc.EncryptOptions) (*pqc.Envelope, error) {
@@ -150,6 +165,9 @@ func (c *remoteClient) Encrypt(ctx context.Context, keyID string, plaintext []by
 		Plaintext: plaintext,
 		AAD:       opts.AAD,
 	}, &out); err != nil {
+		if completedAuditFailure(err) {
+			return &out, err
+		}
 		return nil, err
 	}
 	return &out, nil
@@ -161,6 +179,9 @@ func (c *remoteClient) Decrypt(ctx context.Context, envelope *pqc.Envelope, opts
 		Envelope: *envelope,
 		AAD:      opts.AAD,
 	}, &out); err != nil {
+		if completedAuditFailure(err) {
+			return out.Plaintext, err
+		}
 		return nil, err
 	}
 	return out.Plaintext, nil
@@ -174,6 +195,9 @@ func (c *remoteClient) Sign(ctx context.Context, keyID string, message []byte, o
 		Context:    opts.Context,
 		Randomized: opts.Randomized,
 	}, &out); err != nil {
+		if completedAuditFailure(err) {
+			return &out, err
+		}
 		return nil, err
 	}
 	return &out, nil
@@ -213,17 +237,34 @@ func (c *remoteClient) do(ctx context.Context, method, path string, in, out any)
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		data, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 		var remoteErr remoteError
-		if err := json.Unmarshal(data, &remoteErr); err == nil && remoteErr.Error != "" {
+		if decodeErr := json.NewDecoder(res.Body).Decode(&remoteErr); decodeErr == nil && remoteErr.Error != "" {
+			if remoteErr.AuditFailure != nil {
+				failure := &pqc.AuditFailure{Event: *remoteErr.AuditFailure, Cause: fmt.Errorf("remote %s: %s", res.Status, remoteErr.Error)}
+				if out != nil && failure.Event.Outcome == pqc.AuditSucceeded {
+					if len(remoteErr.Result) == 0 || string(remoteErr.Result) == "null" {
+						return fmt.Errorf("remote operation succeeded but result is unavailable; audit event %s; do not repeat operation", failure.Event.ID)
+					}
+					if err := json.Unmarshal(remoteErr.Result, out); err != nil {
+						return fmt.Errorf("remote operation succeeded but result cannot be decoded; audit event %s; do not repeat operation: %v", failure.Event.ID, err)
+					}
+				}
+				return failure
+			}
 			return fmt.Errorf("remote %s: %s", res.Status, remoteErr.Error)
 		}
-		return fmt.Errorf("remote %s", res.Status)
+		return fmt.Errorf("remote %s; operation outcome may be unknown", res.Status)
 	}
+
 	if out == nil {
 		return nil
 	}
 	decoder := json.NewDecoder(res.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(out)
+}
+
+func completedAuditFailure(err error) bool {
+	var failure *pqc.AuditFailure
+	return errors.As(err, &failure) && failure.Event.Outcome == pqc.AuditSucceeded
 }

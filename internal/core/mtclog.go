@@ -124,6 +124,9 @@ func SignMTCCheckpoint(ctx context.Context, manager interface {
 	}
 	signature, err := manager.Sign(ctx, signKey, message, SignOptions{Context: mtcCheckpointContext})
 	if err != nil {
+		if signature != nil && auditOperationSucceeded(err) {
+			checkpoint.Signature = signature
+		}
 		return err
 	}
 	checkpoint.Signature = signature
