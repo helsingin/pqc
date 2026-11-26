@@ -155,7 +155,7 @@ func (a *app) runIssue(args []string) int {
 	profileVersion := fs.String("profile-version", "", "artifact profile version override")
 	artifactType := fs.String("type", "", "artifact type override")
 	subjectCN := fs.String("subject", "", "subject common name")
-	signKey := fs.String("sign-key", "", "ML-DSA key id used to sign the artifact")
+	signKey := fs.String("sign-key", "", "ML-DSA or SLH-DSA key id used to sign the artifact")
 	inputPath := fs.String("input", "", "artifact profile input JSON file; use - for stdin")
 	ttl := fs.Duration("ttl", 90*24*time.Hour, "artifact validity duration")
 	notBeforeValue := fs.String("not-before", "", "RFC3339 validity start")

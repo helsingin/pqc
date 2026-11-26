@@ -8,7 +8,7 @@ The CLI command groups are:
 
 - `keys`: create, rotate, list, show, and export public keys.
 - `encrypt` / `decrypt`: ML-KEM envelope encryption.
-- `sign` / `verify`: ML-DSA signatures.
+- `sign` / `verify`: ML-DSA or SLH-DSA signatures.
 - `audit`: tamper-evident Merkle checkpoints for JSONL audit logs.
 - `transparency`: signed inventory checkpoints.
 - `inventory`: crypto-agility inventory reports for stores and TLS endpoints.
@@ -55,6 +55,13 @@ pqc keys rotate --id service-a
 ```
 
 Existing envelopes and signatures remain tied to their original key version.
+
+For hash-based artifact or checkpoint signatures, explicitly create a
+`slh-dsa-sha2-192s` (Category 3) or `slh-dsa-sha2-256s` (Category 5) key.
+Both use pure SLH-DSA with a context of at most 255 bytes. Signing is
+deterministic unless `--randomized` is supplied. Rotation retains the algorithm;
+an algorithm change requires a new key ID. See [SLH-DSA](slh-dsa.md) for examples,
+costs and older-client compatibility.
 
 Use a custom store directory:
 
@@ -206,7 +213,7 @@ pqc mtc verify --store ./mtc-keys --proof mtc-proof.json --checkpoint mtc-checkp
 ```
 
 This creates a local append-only-style JSON log, hashes each issued subject into
-a Merkle tree, signs the tree-head checkpoint with ML-DSA, produces inclusion
+a Merkle tree, signs the tree-head checkpoint with ML-DSA or SLH-DSA, produces inclusion
 proofs, and verifies proofs against the signed checkpoint. It is an experimental
 MTC model for development and testing; it is not a browser-trusted WebPKI
 certificate format. `pqc mtc verify` requires a signed checkpoint; an unsigned

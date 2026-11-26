@@ -31,7 +31,7 @@ func (a *app) runAuditCheckpoint(args []string) int {
 	var clientOpts clientOptions
 	registerClientAccessFlags(fs, &clientOpts)
 	auditPath := fs.String("audit", "", "JSONL audit log to checkpoint")
-	signKey := fs.String("sign-key", "", "ML-DSA key id used to sign the checkpoint")
+	signKey := fs.String("sign-key", "", "ML-DSA or SLH-DSA key id used to sign the checkpoint")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

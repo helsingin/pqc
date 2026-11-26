@@ -59,7 +59,7 @@ func (a *app) runTransparencyCheckpoint(args []string) int {
 	var targetOpts inspectTargetOptions
 	registerClientAccessFlags(fs, &clientOpts)
 	registerTargetFlags(fs, &targetOpts)
-	signKey := fs.String("sign-key", "", "ML-DSA key id used to sign the checkpoint")
+	signKey := fs.String("sign-key", "", "ML-DSA or SLH-DSA key id used to sign the checkpoint")
 	includeRevocations := fs.Bool("include-revocations", false, "include revocation manifest in transparency bundle")
 	revocationPath := fs.String("revocations", defaultRevocationManifestPath, "revocation manifest path")
 	if err := fs.Parse(args); err != nil {

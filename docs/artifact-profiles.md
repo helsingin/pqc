@@ -108,11 +108,16 @@ artifact signing operation to `pqcd`, and the daemon remains the only process
 that opens the key store.
 
 Artifact profile documents are JSON documents with `schema`, `profile`, `type`,
-`subject`, validity timestamps, profile-owned `inputs`, metadata, and an ML-DSA
+`subject`, validity timestamps, profile-owned `inputs`, metadata, and an ML-DSA or SLH-DSA
 signature. The stable Go boundary is `profile.Plugin` plus optional
 `Issuer`, `Verifier`, `Inspector`, and `Estimator` capabilities; built-ins live
 under `profiles/<id>` so draft changes stay inside the relevant artifact
 profile.
+
+The envelope signer is independent of the profile being modeled. Using an
+SLH-DSA key signs the JSON artifact; it does not create an SLH-DSA X.509
+certificate or change the profile's modeled TLS signature algorithm. See
+[SLH-DSA signing](slh-dsa.md).
 
 ## ML-DSA In X.509
 

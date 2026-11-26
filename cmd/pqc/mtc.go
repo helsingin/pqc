@@ -154,7 +154,7 @@ func (a *app) runMTCCheckpoint(args []string) int {
 	var clientOpts clientOptions
 	registerClientFlags(fs, &clientOpts)
 	logPath := fs.String("log", defaultMTCLogPath, "MTC log JSON path")
-	signKey := fs.String("sign-key", "", "ML-DSA key id used to sign the checkpoint")
+	signKey := fs.String("sign-key", "", "ML-DSA or SLH-DSA key id used to sign the checkpoint")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

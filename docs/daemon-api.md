@@ -4,6 +4,13 @@
 mode the CLI sends key operations to the daemon, and the daemon remains the only
 process that opens the key store.
 
+Key creation accepts `SLH-DSA-SHA2-192s` and `SLH-DSA-SHA2-256s` alongside
+the existing ML-DSA and ML-KEM algorithms. `/v1/sign` and `/v1/verify` use the
+same JSON request and signature-envelope shapes for both signature families.
+The `context` field is base64-encoded bytes (maximum 255 decoded bytes);
+`randomized` defaults to false. This changes artifact signing options, not
+the daemon's HTTPS certificate or client authentication. See [SLH-DSA](slh-dsa.md).
+
 ## Start The Daemon
 
 Start the optional daemon:

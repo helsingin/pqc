@@ -24,6 +24,12 @@ import (
 )
 
 func TestCLISmokeEncryptDecryptSignVerify(t *testing.T) {
+	for _, algorithm := range []pqc.Algorithm{pqc.AlgorithmMLDSA65, pqc.AlgorithmMLDSA87, pqc.AlgorithmSLHDSASHA2192s, pqc.AlgorithmSLHDSASHA2256s} {
+		t.Run(string(algorithm), func(t *testing.T) { testCLISmokeEncryptDecryptSignVerify(t, algorithm) })
+	}
+}
+
+func testCLISmokeEncryptDecryptSignVerify(t *testing.T, algorithm pqc.Algorithm) {
 	storeDir := t.TempDir()
 	messageFile := filepath.Join(t.TempDir(), "message.txt")
 	if err := os.WriteFile(messageFile, []byte("hello from cli"), 0o600); err != nil {
@@ -31,7 +37,7 @@ func TestCLISmokeEncryptDecryptSignVerify(t *testing.T) {
 	}
 
 	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", "ml-kem-768", "--id", "service-a")
-	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", "ml-dsa-65", "--id", "signer-a")
+	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", string(algorithm), "--id", "signer-a")
 
 	var encrypted bytes.Buffer
 	runOKWithOutput(t, nil, &encrypted, "encrypt", "--store", storeDir, "--key", "service-a", messageFile)
@@ -80,6 +86,12 @@ func TestCLIAgeStoreSmoke(t *testing.T) {
 }
 
 func TestCLIRemoteSmoke(t *testing.T) {
+	for _, algorithm := range []pqc.Algorithm{pqc.AlgorithmMLDSA65, pqc.AlgorithmMLDSA87, pqc.AlgorithmSLHDSASHA2192s, pqc.AlgorithmSLHDSASHA2256s} {
+		t.Run(string(algorithm), func(t *testing.T) { testCLIRemoteSmoke(t, algorithm) })
+	}
+}
+
+func testCLIRemoteSmoke(t *testing.T, algorithm pqc.Algorithm) {
 	manager := newRemoteTestManager(t)
 	server := newRemoteTestServer(t, manager, "remote-token")
 	defer server.Close()
@@ -91,7 +103,7 @@ func TestCLIRemoteSmoke(t *testing.T) {
 
 	common := []string{"--remote", server.URL, "--token", "remote-token"}
 	runOK(t, nil, append([]string{"keys", "create"}, append(common, "--type", "ml-kem-768", "--id", "service-a")...)...)
-	runOK(t, nil, append([]string{"keys", "create"}, append(common, "--type", "ml-dsa-65", "--id", "signer-a")...)...)
+	runOK(t, nil, append([]string{"keys", "create"}, append(common, "--type", string(algorithm), "--id", "signer-a")...)...)
 
 	var listed bytes.Buffer
 	runOKWithOutput(t, nil, &listed, append([]string{"keys", "list"}, common...)...)
@@ -222,11 +234,17 @@ func TestCLIRemoteHTTPSWithClientCertificate(t *testing.T) {
 }
 
 func TestCLIAuditCheckpointAndVerify(t *testing.T) {
+	for _, algorithm := range []pqc.Algorithm{pqc.AlgorithmMLDSA65, pqc.AlgorithmMLDSA87, pqc.AlgorithmSLHDSASHA2192s, pqc.AlgorithmSLHDSASHA2256s} {
+		t.Run(string(algorithm), func(t *testing.T) { testCLIAuditCheckpointAndVerify(t, algorithm) })
+	}
+}
+
+func testCLIAuditCheckpointAndVerify(t *testing.T, algorithm pqc.Algorithm) {
 	storeDir := t.TempDir()
 	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
 	checkpointPath := filepath.Join(t.TempDir(), "audit-checkpoint.json")
 
-	runOK(t, nil, "keys", "create", "--store", storeDir, "--audit-log", auditPath, "--type", "ml-dsa-65", "--id", "audit-signer")
+	runOK(t, nil, "keys", "create", "--store", storeDir, "--audit-log", auditPath, "--type", string(algorithm), "--id", "audit-signer")
 	runOK(t, nil, "keys", "create", "--store", storeDir, "--audit-log", auditPath, "--type", "ml-kem-768", "--id", "service-a")
 
 	var checkpoint bytes.Buffer
@@ -246,12 +264,18 @@ func TestCLIAuditCheckpointAndVerify(t *testing.T) {
 }
 
 func TestCLITransparencyCheckpointAndInventory(t *testing.T) {
+	for _, algorithm := range []pqc.Algorithm{pqc.AlgorithmMLDSA65, pqc.AlgorithmMLDSA87, pqc.AlgorithmSLHDSASHA2192s, pqc.AlgorithmSLHDSASHA2256s} {
+		t.Run(string(algorithm), func(t *testing.T) { testCLITransparencyCheckpointAndInventory(t, algorithm) })
+	}
+}
+
+func testCLITransparencyCheckpointAndInventory(t *testing.T, algorithm pqc.Algorithm) {
 	storeDir := t.TempDir()
 	dir := t.TempDir()
 	bundlePath := filepath.Join(dir, "transparency.json")
 	revocationPath := filepath.Join(dir, "revocations.json")
 
-	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", "ml-dsa-65", "--id", "org-root")
+	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", string(algorithm), "--id", "org-root")
 	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", "ml-kem-768", "--id", "service-a")
 
 	var inventory bytes.Buffer
@@ -293,6 +317,12 @@ func TestCLITransparencyCheckpointAndInventory(t *testing.T) {
 }
 
 func TestCLIProfilesIssueAndVerifyArtifact(t *testing.T) {
+	for _, algorithm := range []pqc.Algorithm{pqc.AlgorithmMLDSA65, pqc.AlgorithmMLDSA87, pqc.AlgorithmSLHDSASHA2192s, pqc.AlgorithmSLHDSASHA2256s} {
+		t.Run(string(algorithm), func(t *testing.T) { testCLIProfilesIssueAndVerifyArtifact(t, algorithm) })
+	}
+}
+
+func testCLIProfilesIssueAndVerifyArtifact(t *testing.T, algorithm pqc.Algorithm) {
 	storeDir := t.TempDir()
 	dir := t.TempDir()
 	inputPath := filepath.Join(dir, "mtc-input.json")
@@ -405,7 +435,7 @@ func TestCLIProfilesIssueAndVerifyArtifact(t *testing.T) {
 		t.Fatalf("profile show missing supported draft: %s", shown.String())
 	}
 
-	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", "ml-dsa-65", "--id", "org-root")
+	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", string(algorithm), "--id", "org-root")
 
 	var x509Artifact bytes.Buffer
 	runOKWithOutput(
@@ -715,6 +745,12 @@ func TestCLITLSReadinessAndInventoryPolicy(t *testing.T) {
 }
 
 func TestCLIMTCLogFlow(t *testing.T) {
+	for _, algorithm := range []pqc.Algorithm{pqc.AlgorithmMLDSA65, pqc.AlgorithmMLDSA87, pqc.AlgorithmSLHDSASHA2192s, pqc.AlgorithmSLHDSASHA2256s} {
+		t.Run(string(algorithm), func(t *testing.T) { testCLIMTCLogFlow(t, algorithm) })
+	}
+}
+
+func testCLIMTCLogFlow(t *testing.T, algorithm pqc.Algorithm) {
 	storeDir := t.TempDir()
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "mtc-log.json")
@@ -722,7 +758,7 @@ func TestCLIMTCLogFlow(t *testing.T) {
 	checkpointPath := filepath.Join(dir, "checkpoint.json")
 	proofPath := filepath.Join(dir, "proof.json")
 
-	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", "ml-dsa-65", "--id", "org-root")
+	runOK(t, nil, "keys", "create", "--store", storeDir, "--type", string(algorithm), "--id", "org-root")
 
 	var publicKey bytes.Buffer
 	runOKWithOutput(t, nil, &publicKey, "keys", "public", "--store", storeDir, "--id", "org-root")

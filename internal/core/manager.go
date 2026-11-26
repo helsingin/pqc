@@ -338,7 +338,7 @@ func (m *Manager) Sign(ctx context.Context, keyID string, message []byte, opts S
 		return nil, fmt.Errorf("signing requires signature key, got %s", record.Algorithm)
 	}
 
-	sigBytes, err := signRecord(record, message, opts)
+	sigBytes, err := signRecord(record, message, opts, m.rand)
 	if err != nil {
 		return nil, err
 	}
@@ -444,6 +444,9 @@ func deriveAEADKey(sharedSecret, salt []byte, record KeyRecord) ([]byte, error) 
 }
 
 func generateKeyPair(algorithm Algorithm, randReader io.Reader) ([]byte, []byte, error) {
+	if id, ok := slhDSAID(algorithm); ok {
+		return generateSLHDSAKeyPair(id, randReader)
+	}
 	switch algorithm {
 	case AlgorithmMLKEM768:
 		pub, priv, err := mlkem768.GenerateKeyPair(randReader)
@@ -492,7 +495,10 @@ func generateKeyPair(algorithm Algorithm, randReader io.Reader) ([]byte, []byte,
 	}
 }
 
-func signRecord(record KeyRecord, message []byte, opts SignOptions) ([]byte, error) {
+func signRecord(record KeyRecord, message []byte, opts SignOptions, randReader io.Reader) ([]byte, error) {
+	if id, ok := slhDSAID(record.Algorithm); ok {
+		return signSLHDSA(id, record.PrivateKey, message, opts, randReader)
+	}
 	switch record.Algorithm {
 	case AlgorithmMLDSA65:
 		if len(record.PrivateKey) != mldsa65.PrivateKeySize {
@@ -528,6 +534,9 @@ func signRecord(record KeyRecord, message []byte, opts SignOptions) ([]byte, err
 func verifyRecord(record KeyRecord, message []byte, sig *SignatureEnvelope) error {
 	if len(sig.Context) > 255 {
 		return fmt.Errorf("%w: context exceeds 255 bytes", ErrInvalidSignature)
+	}
+	if id, ok := slhDSAID(record.Algorithm); ok {
+		return verifySLHDSA(id, record.PublicKey, message, sig)
 	}
 	switch record.Algorithm {
 	case AlgorithmMLDSA65:
@@ -606,7 +615,7 @@ func validateSignature(sig *SignatureEnvelope) error {
 	if sig.KeyVersion < 1 {
 		return fmt.Errorf("%w: invalid key_version", ErrInvalidSignature)
 	}
-	if sig.Algorithm != AlgorithmMLDSA65 && sig.Algorithm != AlgorithmMLDSA87 {
+	if use, err := sig.Algorithm.Use(); err != nil || use != KeyUseSignature {
 		return fmt.Errorf("%w: unsupported algorithm %q", ErrInvalidSignature, sig.Algorithm)
 	}
 	if len(sig.Signature) == 0 {

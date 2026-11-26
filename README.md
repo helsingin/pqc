@@ -6,7 +6,7 @@
 
 - Manage post-quantum cryptography keys.
 - Encrypt data with ML-KEM envelopes.
-- Sign artifacts with ML-DSA.
+- Sign artifacts with ML-DSA or SLH-DSA.
 - Inspect TLS endpoints for hybrid post-quantum cryptography.
 - Score migration readiness.
 - Produce signed audit and transparency evidence.
@@ -97,11 +97,12 @@ pqc verify-artifact artifact.json
 - [Command-Line Reference](docs/cli.md)
 - [Artifact Profiles](docs/artifact-profiles.md)
 - [Daemon, HTTP Service, And Transport](docs/daemon-api.md)
+- [SLH-DSA Signing, Compatibility And Measurements](docs/slh-dsa.md)
 
 ## Notes
 
-- Current post-quantum cryptography primitives: `ML-KEM-768`, `ML-DSA-65`, and
-  `ML-DSA-87`.
+- Current post-quantum cryptography primitives: `ML-KEM-768`, `ML-DSA-65`,
+  `ML-DSA-87`, `SLH-DSA-SHA2-192s`, and `SLH-DSA-SHA2-256s`.
 - The implementation uses Cloudflare CIRCL for post-quantum cryptography
   primitives and the Go standard library for HKDF and AES-GCM.
 - Treat this as a migration and integration toolkit, not a replacement for

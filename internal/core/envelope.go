@@ -26,7 +26,7 @@ type Envelope struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
-// SignatureEnvelope carries an ML-DSA signature plus enough metadata to verify
+// SignatureEnvelope carries an ML-DSA or SLH-DSA signature plus metadata to verify
 // it later using the manager's key store.
 type SignatureEnvelope struct {
 	Schema     string    `json:"schema"`

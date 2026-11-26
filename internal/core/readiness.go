@@ -155,7 +155,7 @@ func summarizeLocalKeys(keys []InventoryEntry) localKeySummary {
 		switch key.Algorithm {
 		case AlgorithmMLKEM768:
 			summary.PQKEM++
-		case AlgorithmMLDSA65, AlgorithmMLDSA87:
+		case AlgorithmMLDSA65, AlgorithmMLDSA87, AlgorithmSLHDSASHA2192s, AlgorithmSLHDSASHA2256s:
 			summary.PQSignatures++
 		}
 	}

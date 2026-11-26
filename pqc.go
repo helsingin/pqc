@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	AlgorithmMLKEM768 = core.AlgorithmMLKEM768
-	AlgorithmMLDSA65  = core.AlgorithmMLDSA65
-	AlgorithmMLDSA87  = core.AlgorithmMLDSA87
+	AlgorithmMLKEM768       = core.AlgorithmMLKEM768
+	AlgorithmMLDSA65        = core.AlgorithmMLDSA65
+	AlgorithmMLDSA87        = core.AlgorithmMLDSA87
+	AlgorithmSLHDSASHA2192s = core.AlgorithmSLHDSASHA2192s
+	AlgorithmSLHDSASHA2256s = core.AlgorithmSLHDSASHA2256s
 
 	KeyUseKEM       = core.KeyUseKEM
 	KeyUseSignature = core.KeyUseSignature

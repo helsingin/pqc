@@ -72,9 +72,9 @@ func (a *app) runSign(args []string) int {
 	fs := a.flagSet("pqc sign")
 	var clientOpts clientOptions
 	registerClientFlags(fs, &clientOpts)
-	keyID := fs.String("key", "", "ML-DSA key id")
-	contextValue := fs.String("context", "", "ML-DSA context string")
-	randomized := fs.Bool("randomized", false, "use randomized ML-DSA signing")
+	keyID := fs.String("key", "", "ML-DSA or SLH-DSA key id")
+	contextValue := fs.String("context", "", "signature context string (at most 255 bytes)")
+	randomized := fs.Bool("randomized", false, "use randomized signing")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

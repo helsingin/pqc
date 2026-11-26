@@ -35,7 +35,7 @@ func (a *app) runKeysCreate(args []string) int {
 	var clientOpts clientOptions
 	registerClientFlags(fs, &clientOpts)
 	id := fs.String("id", "", "key id")
-	typ := fs.String("type", "", "key type: ml-kem-768, ml-dsa-65, or ml-dsa-87")
+	typ := fs.String("type", "", "key type: ml-kem-768, ml-dsa-65, ml-dsa-87, slh-dsa-sha2-192s, or slh-dsa-sha2-256s")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
