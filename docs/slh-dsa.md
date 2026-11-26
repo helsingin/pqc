@@ -18,8 +18,8 @@ or deployment automatically changes algorithm.
 
 ## Use
 
-Build from this checkout with `make build`; these changes are not a published
-release yet. For example:
+Available since v0.2.0. Build from a checkout with `make build`, or install with
+`go install github.com/helsingin/pqc/cmd/pqc@v0.2.0`. For example, from a checkout:
 
 ```sh
 bin/pqc keys create --store ./slh-keys --type slh-dsa-sha2-192s --id evidence-root
