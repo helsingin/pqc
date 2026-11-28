@@ -2,13 +2,19 @@ package core
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/hex"
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,9 +31,21 @@ type TLSInspectOptions struct {
 	InsecureSkipVerify bool
 	PQC                bool
 	RootCAs            *x509.CertPool
+	// Explicit controls for a reproducible probe. An empty list uses Go defaults.
+	CurvePreferences []tls.CurveID
+	MinVersion       uint16
+	MaxVersion       uint16
+	// Numeric IP:port only. Verification and SNI still use ServerName/target host.
+	DialAddress string
+	NextProtos  []string
 }
 
 type TLSReport struct {
+	RemoteAddress           string           `json:"remote_address,omitempty"`
+	OfferedKeyExchanges     []string         `json:"offered_key_exchanges,omitempty"`
+	MinTLSVersion           string           `json:"min_tls_version,omitempty"`
+	MaxTLSVersion           string           `json:"max_tls_version,omitempty"`
+	NegotiatedProtocol      string           `json:"negotiated_protocol,omitempty"`
 	Target                  string           `json:"target"`
 	ServerName              string           `json:"server_name,omitempty"`
 	TLSVersion              string           `json:"tls_version,omitempty"`
@@ -50,15 +68,21 @@ type TLSReport struct {
 }
 
 type TLSCertificate struct {
-	Subject            string    `json:"subject"`
-	Issuer             string    `json:"issuer"`
-	DNSNames           []string  `json:"dns_names,omitempty"`
-	NotBefore          time.Time `json:"not_before"`
-	NotAfter           time.Time `json:"not_after"`
-	SignatureAlgorithm string    `json:"signature_algorithm"`
-	PublicKeyAlgorithm string    `json:"public_key_algorithm"`
-	FingerprintSHA256  string    `json:"fingerprint_sha256"`
-	RawBytes           int       `json:"raw_bytes"`
+	SerialNumberHex     string            `json:"serial_number_hex"`
+	PublicKeySHA256     string            `json:"public_key_sha256"`
+	Subject             string            `json:"subject"`
+	Issuer              string            `json:"issuer"`
+	DNSNames            []string          `json:"dns_names,omitempty"`
+	NotBefore           time.Time         `json:"not_before"`
+	NotAfter            time.Time         `json:"not_after"`
+	SignatureAlgorithm  string            `json:"signature_algorithm"`
+	PublicKeyAlgorithm  string            `json:"public_key_algorithm"`
+	FingerprintSHA256   string            `json:"fingerprint_sha256"`
+	RawBytes            int               `json:"raw_bytes"`
+	RawDER              []byte            `json:"raw_der,omitempty"`
+	SignatureOID        string            `json:"signature_oid,omitempty"`
+	PublicKeyOID        string            `json:"public_key_oid,omitempty"`
+	PublicKeyParameters map[string]string `json:"public_key_parameters,omitempty"`
 }
 
 func InspectTLS(ctx context.Context, target string, opts TLSInspectOptions) (TLSReport, error) {
@@ -74,62 +98,80 @@ func InspectTLS(ctx context.Context, target string, opts TLSInspectOptions) (TLS
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
-	cfg := &tls.Config{
-		MinVersion:         tls.VersionTLS12,
-		ServerName:         serverName,
-		InsecureSkipVerify: opts.InsecureSkipVerify,
-		RootCAs:            opts.RootCAs,
+	minVersion, maxVersion := opts.MinVersion, opts.MaxVersion
+	if minVersion == 0 {
+		minVersion = tls.VersionTLS12
 	}
+	if maxVersion == 0 {
+		maxVersion = tls.VersionTLS13
+	}
+	if minVersion < tls.VersionTLS12 || maxVersion > tls.VersionTLS13 || minVersion > maxVersion {
+		return TLSReport{}, fmt.Errorf("TLS inspection supports TLS 1.2 through TLS 1.3")
+	}
+	if opts.PQC && len(opts.CurvePreferences) > 0 {
+		return TLSReport{}, fmt.Errorf("choose PQC defaults or explicit groups, not both")
+	}
+	cfg := &tls.Config{MinVersion: minVersion, MaxVersion: maxVersion, ServerName: serverName, RootCAs: opts.RootCAs, NextProtos: append([]string(nil), opts.NextProtos...), CurvePreferences: append([]tls.CurveID(nil), opts.CurvePreferences...)}
 	if opts.PQC {
-		cfg.CurvePreferences = []tls.CurveID{
-			tls.X25519MLKEM768,
-			tls.SecP256r1MLKEM768,
-			tls.SecP384r1MLKEM1024,
-			tls.X25519,
-			tls.CurveP256,
-			tls.CurveP384,
-		}
+		cfg.CurvePreferences = []tls.CurveID{tls.X25519MLKEM768, tls.SecP256r1MLKEM768, tls.SecP384r1MLKEM1024, tls.X25519, tls.CurveP256, tls.CurveP384}
 	}
-
+	destination := networkTarget
+	if opts.DialAddress != "" {
+		address, port, err := net.SplitHostPort(opts.DialAddress)
+		number, e := strconv.Atoi(port)
+		if err != nil || e != nil || number < 1 || number > 65535 || net.ParseIP(address) == nil {
+			return TLSReport{}, fmt.Errorf("dial address must be numeric IP:port")
+		}
+		destination = opts.DialAddress
+	}
+	// Capture trust failure on the same connection, rather than reconnecting to
+	// a potentially different frontend. TLS handshake signature checks still run.
+	// Inspection sends no application data. This is not a general-purpose TLS dialer.
+	var verificationErr error
+	cfg.InsecureSkipVerify = true
+	cfg.VerifyConnection = func(state tls.ConnectionState) error {
+		if opts.InsecureSkipVerify {
+			return nil
+		}
+		intermediates := x509.NewCertPool()
+		for _, cert := range state.PeerCertificates[1:] {
+			intermediates.AddCert(cert)
+		}
+		_, verificationErr = state.PeerCertificates[0].Verify(x509.VerifyOptions{DNSName: serverName, Roots: opts.RootCAs, Intermediates: intermediates})
+		return nil
+	}
 	dialCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	dialer := tls.Dialer{
-		NetDialer: &net.Dialer{Timeout: timeout},
-		Config:    cfg,
-	}
-	netConn, err := dialer.DialContext(dialCtx, "tcp", networkTarget)
+	dialer := tls.Dialer{NetDialer: &net.Dialer{Timeout: timeout}, Config: cfg}
+	netConn, err := dialer.DialContext(dialCtx, "tcp", destination)
 	if err != nil {
-		if opts.InsecureSkipVerify {
-			return TLSReport{}, err
-		}
-		insecureOpts := opts
-		insecureOpts.InsecureSkipVerify = true
-		report, insecureErr := InspectTLS(ctx, networkTarget, insecureOpts)
-		if insecureErr != nil {
-			return TLSReport{}, err
-		}
-		report.Verified = false
-		report.VerificationMode = tlsVerificationMode(opts)
-		report.VerificationError = err.Error()
-		report.Warnings = append(report.Warnings, "certificate verification failed")
-		return report, nil
+		return TLSReport{}, err
 	}
 	conn, ok := netConn.(*tls.Conn)
 	if !ok {
-		_ = netConn.Close()
+		netConn.Close()
 		return TLSReport{}, fmt.Errorf("unexpected TLS connection type %T", netConn)
 	}
 	defer conn.Close()
-	if deadline, ok := ctx.Deadline(); ok {
-		_ = conn.SetDeadline(deadline)
-	}
 	state := conn.ConnectionState()
 	report := tlsReportFromState(networkTarget, serverName, state, time.Now().UTC())
+	report.RemoteAddress = conn.RemoteAddr().String()
+	report.MinTLSVersion = tlsVersionName(minVersion)
+	report.MaxTLSVersion = tlsVersionName(maxVersion)
+	report.NegotiatedProtocol = state.NegotiatedProtocol
+	for _, group := range cfg.CurvePreferences {
+		report.OfferedKeyExchanges = append(report.OfferedKeyExchanges, group.String())
+	}
 	report.VerificationMode = tlsVerificationMode(opts)
-	report.Verified = len(state.VerifiedChains) > 0 && !opts.InsecureSkipVerify
+	report.Verified = !opts.InsecureSkipVerify && verificationErr == nil
+	if verificationErr != nil {
+		report.VerificationError = verificationErr.Error()
+		report.Warnings = append(report.Warnings, "certificate verification failed")
+	}
 	if opts.InsecureSkipVerify {
 		report.Warnings = append(report.Warnings, "certificate verification skipped")
 	}
+
 	return report, nil
 }
 
@@ -220,17 +262,33 @@ func normalizeTLSTarget(target string) (networkTarget, host string, err error) {
 
 func tlsCertificate(cert *x509.Certificate) TLSCertificate {
 	sum := sha256.Sum256(cert.Raw)
-	return TLSCertificate{
-		Subject:            cert.Subject.String(),
-		Issuer:             cert.Issuer.String(),
-		DNSNames:           append([]string(nil), cert.DNSNames...),
-		NotBefore:          cert.NotBefore.UTC(),
-		NotAfter:           cert.NotAfter.UTC(),
-		SignatureAlgorithm: cert.SignatureAlgorithm.String(),
-		PublicKeyAlgorithm: cert.PublicKeyAlgorithm.String(),
-		FingerprintSHA256:  hex.EncodeToString(sum[:]),
-		RawBytes:           len(cert.Raw),
+	spkiSum := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+	out := TLSCertificate{SerialNumberHex: cert.SerialNumber.Text(16), PublicKeySHA256: hex.EncodeToString(spkiSum[:]), Subject: cert.Subject.String(), Issuer: cert.Issuer.String(), DNSNames: append([]string(nil), cert.DNSNames...), NotBefore: cert.NotBefore.UTC(), NotAfter: cert.NotAfter.UTC(), SignatureAlgorithm: cert.SignatureAlgorithm.String(), PublicKeyAlgorithm: cert.PublicKeyAlgorithm.String(), FingerprintSHA256: hex.EncodeToString(sum[:]), RawBytes: len(cert.Raw), RawDER: append([]byte(nil), cert.Raw...), PublicKeyParameters: map[string]string{}}
+	var outer struct {
+		TBS       asn1.RawValue
+		Algorithm pkix.AlgorithmIdentifier
+		Signature asn1.BitString
 	}
+	if rest, err := asn1.Unmarshal(cert.Raw, &outer); err == nil && len(rest) == 0 {
+		out.SignatureOID = outer.Algorithm.Algorithm.String()
+	}
+	var spki struct {
+		Algorithm pkix.AlgorithmIdentifier
+		Key       asn1.BitString
+	}
+	if rest, err := asn1.Unmarshal(cert.RawSubjectPublicKeyInfo, &spki); err == nil && len(rest) == 0 {
+		out.PublicKeyOID = spki.Algorithm.Algorithm.String()
+	}
+	switch key := cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		out.PublicKeyParameters["bits"] = strconv.Itoa(key.N.BitLen())
+	case *ecdsa.PublicKey:
+		out.PublicKeyParameters["curve"] = key.Curve.Params().Name
+		out.PublicKeyParameters["bits"] = strconv.Itoa(key.Curve.Params().BitSize)
+	case ed25519.PublicKey:
+		out.PublicKeyParameters["bits"] = strconv.Itoa(len(key) * 8)
+	}
+	return out
 }
 
 func tlsVersionName(version uint16) string {
